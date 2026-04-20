@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Дурак 36 карт - Игра</title>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        * {
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        .game-header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            z-index: 200;
+            backdrop-filter: blur(5px);
+        }
+        
+        .trump-indicator {
+            background: rgba(0,255,150,0.2);
+            padding: 8px 16px;
+            border-radius: 30px;
+            color: #00ff96;
+            font-weight: bold;
+        }
+        
+        .exit-btn {
+            background: rgba(255,0,0,0.3);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+        
+        .exit-btn:hover {
+            background: rgba(255,0,0,0.6);
+        }
+        
+        @media (max-width: 768px) {
+            .game-header {
+                height: 50px;
+                font-size: 12px;
+            }
+            .trump-indicator {
+                padding: 4px 10px;
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-header">
+        <div class="trump-indicator">♢ КОЗЫРЬ: БУБНЫ ♢</div>
+        <button class="exit-btn" onclick="exitGame()">🚪 Выход</button>
+    </div>
+    
+    <div id="gameContainer">
+        <div id="statusBar" class="status"></div>
+
+        <div class="square-field">
+            <div class="player-zone top" id="playerTop"></div>
+            <div class="player-zone left" id="playerLeft"></div>
+            
+            <div class="table-zone" id="tableZone"></div>
+            
+            <div class="player-zone right" id="playerRight"></div>
+            
+            <div class="player-zone my-zone" id="myZone">
+                <div class="my-label">🎴 ВАШИ КАРТЫ</div>
+                <div id="myHand" class="hand"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Сначала подключаем socket.io -->
+    <script src="/socket.io/socket.io.js"></script>
+    <!-- Затем подключаем нашу логику -->
+    <script src="js/gameUI.js"></script>
+    
+    <script>
+        function exitGame() {
+            if (confirm('Выйти из игры? Вы будете считаться проигравшим.')) {
+                window.location.href = '/';
+            }
+        }
+        
+        console.log('game.html загружен');
+    </script>
+</body>
+</html>

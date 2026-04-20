@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Дурак 36 карт</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: linear-gradient(135deg, #0a2f23 0%, #041f19 100%);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            font-family: 'Segoe UI', Arial, sans-serif;
+        }
+        .login-box {
+            background: rgba(5, 40, 31, 0.95);
+            padding: 50px 60px;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 0 50px rgba(0, 255, 150, 0.4);
+            width: 450px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 255, 150, 0.3);
+        }
+        h1 {
+            color: #00ff96;
+            margin-bottom: 30px;
+            font-size: 36px;
+            text-shadow: 0 0 20px rgba(0, 255, 150, 0.5);
+        }
+        .subtitle {
+            color: #aaa;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        input {
+            width: 100%;
+            padding: 16px;
+            margin: 15px 0;
+            background: #0f4a38;
+            border: 2px solid #00ff96;
+            border-radius: 10px;
+            color: white;
+            font-size: 18px;
+            text-align: center;
+            transition: all 0.3s;
+        }
+        input:focus {
+            outline: none;
+            border-color: #ffd700;
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+        }
+        button {
+            width: 100%;
+            padding: 16px;
+            margin: 15px 0;
+            background: linear-gradient(135deg, #00ff96 0%, #00cc7a 100%);
+            color: #05281f;
+            border: none;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 255, 150, 0.3);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        #status {
+            margin-top: 20px;
+            color: #ffd700;
+            font-size: 16px;
+            min-height: 24px;
+        }
+        .rules {
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 1px solid rgba(0, 255, 150, 0.3);
+            font-size: 12px;
+            color: #888;
+            text-align: left;
+        }
+        .rules h3 {
+            color: #00ff96;
+            margin-bottom: 10px;
+            font-size: 14px;
+        }
+        .rules p {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-box">
+        <h1>🎴 ДУРАК 36 карт</h1>
+        <div class="subtitle">Классическая русская игра</div>
+        <input type="text" id="username" placeholder="Ваш ник" maxlength="12" value="Игрок">
+        <button onclick="joinGame()">🎮 Присоединиться к игре</button>
+        <div id="status"></div>
+        <div class="rules">
+            <h3>📜 Правила:</h3>
+            <p>♢ Козырь: <span style="color:#00ff96">БУБНЫ</span></p>
+            <p>♠ Пики бьются только пиками</p>
+            <p>♕ Дама завершает ход</p>
+            <p>🎯 Первый ход: у кого 6♦</p>
+            <p>👥 Игра на 3 игроков</p>
+        </div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="js/socketClient.js"></script>
+</body>
+</html>
