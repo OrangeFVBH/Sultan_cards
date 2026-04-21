@@ -8,263 +8,131 @@ body {
 
 #gameContainer {
     position: relative;
-    height: 100vh;
+    flex-grow: 1; 
+    display: flex;
+    flex-direction: column;
     width: 100vw;
+    overflow: hidden;
 }
 
 .square-field {
     display: grid;
-    grid-template-columns: 1fr 3fr 1fr;
-    grid-template-rows: 1fr 3fr 1fr;
-    gap: 12px;
-    height: 100vh;
-    padding: 15px;
+    grid-template-columns: 120px 1fr 120px;
+    grid-template-rows: 1fr 1.5fr 1.2fr;
+    gap: 10px;
+    height: 100%;
+    width: 100%;
+    padding: 10px;
     background: #041f19;
     box-sizing: border-box;
 }
 
 .player-zone {
-    background: rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.05);
     border-radius: 12px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    padding: 10px;
-    border: 3px solid #00ff96;
+    padding: 8px;
+    border: 2px solid rgba(0, 255, 150, 0.4);
     text-align: center;
 }
 
-.player-name {
-    color: #00ff96;
-    font-weight: bold;
-    font-size: 16px;
-    margin-bottom: 5px;
-}
-
-.player-cards {
-    color: #fff;
-    font-size: 14px;
-}
-
-.role-attacker {
-    color: #ff9800;
-    font-size: 12px;
-    margin-top: 5px;
-}
-
-.role-defender {
-    color: #4caf50;
-    font-size: 12px;
-    margin-top: 5px;
-}
+/* Центрируем зоны игроков */
+.player-zone.top { grid-column: 2 / 3; grid-row: 1 / 2; }
+.player-zone.left { grid-column: 1 / 2; grid-row: 2 / 3; }
+.player-zone.right { grid-column: 3 / 4; grid-row: 2 / 3; }
 
 .my-zone { 
     border-color: #ffd700; 
-    background: #0b3d2e;
-    grid-column: 2 / 3;
+    background: rgba(11, 61, 46, 0.8);
+    grid-column: 1 / 4; /* Расширяем на всю ширину для удобства карт */
     grid-row: 3 / 4;
+    display: flex;
+    flex-direction: column;
 }
 
-.my-label { 
-    color: #ffd700; 
-    font-weight: bold; 
-    margin-bottom: 8px;
-    font-size: 14px;
+.hand {
+    display: flex;
+    gap: 5px;
+    flex-wrap: nowrap; /* Запрещаем перенос, чтобы не плодить высоту */
+    justify-content: center;
+    align-items: flex-end;
+    padding: 5px;
+    width: 100%;
+    overflow-x: visible; /* Убираем скролл */
+    overflow-y: hidden;
+}
+
+/* Убираем скроллбары в принципе */
+.hand::-webkit-scrollbar {
+    display: none;
+}
+
+.card {
+    width: 70px;
+    height: 100px;
+    border-radius: 6px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+    flex-shrink: 0; /* Чтобы карты не сжимались в кашу */
+    transition: transform 0.2s;
+    background: #fff;
+}
+
+.my-card:hover {
+    transform: translateY(-20px) scale(1.1);
+    z-index: 10;
 }
 
 .table-zone {
     grid-column: 2 / 3;
     grid-row: 2 / 3;
-    background: #1a3d2e;
-    border: 5px dashed #00ff96;
+    background: rgba(26, 61, 46, 0.5);
+    border: 3px dashed rgba(0, 255, 150, 0.3);
     border-radius: 15px;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 20px;
-    overflow-y: auto;
-}
-
-.empty-text { 
-    color: #aaa; 
-    font-size: 18px; 
-    text-align: center; 
-}
-
-.table-pairs {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 20px;
-    justify-content: center;
-    align-items: center;
-}
-
-.card-pair {
-    display: flex;
-    gap: 10px;
-    align-items: center;
-}
-
-.card {
-    width: 75px;
-    height: 105px;
-    border-radius: 8px;
-    box-shadow: 0 6px 15px rgba(0,0,0,0.6);
-    transition: all 0.2s;
-    position: relative;
-}
-
-.my-card {
-    cursor: grab;
-}
-
-.my-card:hover {
-    transform: scale(1.12) rotate(3deg);
-}
-
-.my-card:active {
-    cursor: grabbing;
-}
-
-.card img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    border-radius: 8px;
-}
-
-.attack-card {
-    border: 2px solid #ff4444;
-}
-
-.defend-card {
-    border: 2px solid #00ff96;
-}
-
-.card-placeholder {
-    width: 75px;
-    height: 105px;
-    border-radius: 8px;
-    background: rgba(0,0,0,0.3);
-    border: 2px dashed #666;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #666;
-    font-size: 24px;
-}
-
-.hand {
-    display: flex;
-    gap: 12px;
-    flex-wrap: wrap;
-    justify-content: center;
     padding: 10px;
-    max-height: 160px;
-    overflow-y: auto;
 }
 
 .status {
     position: absolute;
-    top: 20px;
+    top: 10px; /* Теперь отсчитывается от верха игрового поля */
     left: 50%;
     transform: translateX(-50%);
     background: rgba(0,0,0,0.85);
     color: #ffd700;
-    padding: 12px 30px;
+    padding: 8px 20px;
     border-radius: 50px;
-    font-size: 18px;
-    font-weight: bold;
-    z-index: 100;
-    box-shadow: 0 0 20px rgba(255,215,0,0.6);
-    text-align: center;
-    white-space: nowrap;
-}
-
-.action-buttons {
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    display: flex;
-    gap: 15px;
-    z-index: 100;
-}
-
-.action-btn {
-    padding: 12px 24px;
-    font-size: 16px;
-    font-weight: bold;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.end-btn {
-    background: #ff9800;
-    color: #000;
-}
-
-.end-btn:hover {
-    background: #ffb74d;
-    transform: scale(1.05);
-}
-
-.take-btn {
-    background: #f44336;
-    color: #fff;
-}
-
-.take-btn:hover {
-    background: #ff6659;
-    transform: scale(1.05);
-}
-
-.queen-mark {
-    position: absolute;
-    top: -10px;
-    right: -10px;
-    background: #ffd700;
-    color: #000;
-    border-radius: 50%;
-    width: 24px;
-    height: 24px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     font-size: 14px;
     font-weight: bold;
+    z-index: 100;
+    box-shadow: 0 0 15px rgba(255,215,0,0.3);
+    pointer-events: none;
 }
 
-.win-message {
-    color: #ffd700;
-    font-size: 24px;
-    text-align: center;
-    padding: 20px;
-    font-weight: bold;
-}
-
-/* Адаптация под мобильные устройства */
+/* Мобильная адаптация */
 @media (max-width: 768px) {
-    .card, .card-placeholder {
+    .square-field {
+        grid-template-columns: 80px 1fr 80px;
+        gap: 5px;
+    }
+
+    .card {
         width: 50px;
-        height: 70px;
+        height: 75px;
+        margin-left: -15px; /* Нахлест карт, чтобы влезли в ряд */
     }
     
+    .card:first-child { margin-left: 0; }
+
     .status {
-        font-size: 12px;
-        white-space: normal;
-        text-align: center;
+        font-size: 11px;
         top: 5px;
+        width: 80%;
     }
-    
-    .action-btn {
-        padding: 8px 16px;
-        font-size: 12px;
-    }
-    
-    .player-name {
-        font-size: 10px;
-    }
+
+    .my-label { font-size: 10px; margin-bottom: 2px; }
 }

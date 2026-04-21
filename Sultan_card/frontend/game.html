@@ -9,21 +9,31 @@
         * {
             user-select: none;
             -webkit-tap-highlight-color: transparent;
+            box-sizing: border-box;
         }
         
+        /* Исправленная структура body */
+        body {
+            margin: 0;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            background: #0a2f23;
+            overflow: hidden;
+            font-family: Arial, sans-serif;
+        }
+
         .game-header {
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
             height: 60px;
-            background: rgba(0,0,0,0.7);
+            background: rgba(0,0,0,0.8);
             display: flex;
             align-items: center;
             justify-content: space-between;
             padding: 0 20px;
             z-index: 200;
             backdrop-filter: blur(5px);
+            border-bottom: 1px solid rgba(0,255,150,0.2);
+            flex-shrink: 0; /* Чтобы шапка не сжималась */
         }
         
         .trump-indicator {
@@ -32,15 +42,17 @@
             border-radius: 30px;
             color: #00ff96;
             font-weight: bold;
+            border: 1px solid rgba(0,255,150,0.3);
         }
         
         .exit-btn {
-            background: rgba(255,0,0,0.3);
+            background: rgba(255,50,50,0.3);
             color: white;
-            border: none;
+            border: 1px solid rgba(255,50,50,0.5);
             padding: 8px 16px;
             border-radius: 8px;
             cursor: pointer;
+            transition: 0.2s;
         }
         
         .exit-btn:hover {
@@ -50,11 +62,11 @@
         @media (max-width: 768px) {
             .game-header {
                 height: 50px;
-                font-size: 12px;
+                padding: 0 10px;
             }
             .trump-indicator {
                 padding: 4px 10px;
-                font-size: 12px;
+                font-size: 11px;
             }
         }
     </style>
@@ -66,7 +78,7 @@
     </div>
     
     <div id="gameContainer">
-        <div id="statusBar" class="status"></div>
+        <div id="statusBar" class="status">Ваш ход</div>
 
         <div class="square-field">
             <div class="player-zone top" id="playerTop"></div>
@@ -83,9 +95,7 @@
         </div>
     </div>
 
-    <!-- Сначала подключаем socket.io -->
     <script src="/socket.io/socket.io.js"></script>
-    <!-- Затем подключаем нашу логику -->
     <script src="js/gameUI.js"></script>
     
     <script>
@@ -94,8 +104,6 @@
                 window.location.href = '/';
             }
         }
-        
-        console.log('game.html загружен');
     </script>
 </body>
 </html>

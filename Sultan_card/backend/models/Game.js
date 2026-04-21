@@ -2,103 +2,69 @@ const { createDeck, shuffle } = require('../utils/deck');
 
 class Game {
     constructor(players) {
-        console.log('🎮 Создание новой игры...');
-        this.players = players;
+        this.players = players;           // 3 объекта Player
         this.deck = shuffle(createDeck());
         this.trumpSuit = 'diamonds';
-        this.table = [];
+        this.table = [];                  // [{type: 'attack'|'defend', card}]
+        this.attackRanks = new Set();     // какие достоинства уже на столе
         this.currentAttackerIndex = 0;
         this.currentDefenderIndex = 1;
-        this.attackRanks = new Set();
-        this.isBoutActive = true;
-        this.gameWinner = null;
+        this.gameOver = false;
 
-        console.log(`Колода создана, карт в колоде: ${this.deck.length}`);
         this.dealCards();
         this.findFirstAttacker();
-        console.log('✅ Игра создана успешно');
     }
 
     dealCards() {
-        // Раздача по 12 карт на троих
-        console.log('📤 Раздача карт...');
-        this.players.forEach((player, index) => {
-            const cards = this.deck.splice(0, 12);
-            player.hand = cards;
-            console.log(`Игрок ${player.username} получил ${cards.length} карт`);
+        const cardsPerPlayer = this.players.length === 3 ? 12 : 6;
+        this.players.forEach(player => {
+            player.hand = this.deck.splice(0, cardsPerPlayer);
         });
-        console.log(`Осталось в колоде: ${this.deck.length} карт`);
     }
 
     findFirstAttacker() {
-        // Первый игрок определяется наличием шестерки бубен
         for (let i = 0; i < this.players.length; i++) {
-            const hasSixDiamonds = this.players[i].hand.some(c => c.rank === '6' && c.suit === 'diamonds');
-            if (hasSixDiamonds) {
+            if (this.players[i].hand.some(c => c.rank === '6' && c.suit === 'diamonds')) {
                 this.currentAttackerIndex = i;
                 this.currentDefenderIndex = (i + 1) % this.players.length;
-                console.log(`🎯 Первый атакующий: ${this.players[i].username} (есть 6♦)`);
                 return;
             }
         }
-        // Если нет шестерки бубен - первый игрок по порядку
+        // Если нет 6♦ — первый по порядку
         this.currentAttackerIndex = 0;
         this.currentDefenderIndex = 1;
-        console.log(`🎯 Первый атакующий: ${this.players[0].username} (по умолчанию)`);
     }
 
     canBeat(attackCard, defendCard) {
-        // Дама завершает ход (не бьет, а завершает)
-        if (defendCard.rank === 'Q') {
-            return true;
-        }
+        if (defendCard.rank === 'Q') return true;           // Дама всегда завершает ход
 
-        // Если атакующая карта - дама, её нельзя побить
-        if (attackCard.rank === 'Q') {
-            return false;
-        }
+        if (defendCard.isTrump && !attackCard.isTrump) return true;
+        if (attackCard.isTrump && defendCard.isTrump) return defendCard.value > attackCard.value;
+        if (attackCard.isTrump) return false;
 
-        // Пики бьются только пиками
-        if (attackCard.suit === 'spades') {
+        // Пики бьют ТОЛЬКО пики
+        if (attackCard.suit === 'spades' || defendCard.suit === 'spades') {
             return defendCard.suit === 'spades' && defendCard.value > attackCard.value;
         }
 
-        // Козырь (бубны) бьет все, кроме пик (пики уже обработаны)
-        if (defendCard.isTrump && !attackCard.isTrump && attackCard.suit !== 'spades') {
-            return true;
-        }
-
-        // Оба козыри
-        if (attackCard.isTrump && defendCard.isTrump) {
-            return defendCard.value > attackCard.value;
-        }
-
-        // Одна масть
-        if (defendCard.suit === attackCard.suit) {
-            return defendCard.value > attackCard.value;
-        }
-
-        return false;
+        return defendCard.suit === attackCard.suit && defendCard.value > attackCard.value;
     }
 
     attack(playerId, cardIndex) {
         const attacker = this.players[this.currentAttackerIndex];
-        if (!attacker || attacker.id !== playerId) return { success: false, error: 'Не ваш ход' };
-        if (!this.isBoutActive) return { success: false, error: 'Раунд не активен' };
+        if (attacker.id !== playerId) return { success: false, error: 'Не ваш ход' };
 
         const card = attacker.hand[cardIndex];
         if (!card) return { success: false, error: 'Карта не найдена' };
 
-        // Проверка: можно ли ходить этой картой
+        // Можно ходить только картой того же достоинства, что уже на столе (кроме первой)
         if (this.table.length > 0 && !this.attackRanks.has(card.rank)) {
             return { success: false, error: 'Можно ходить только картами того же достоинства' };
         }
 
         attacker.hand.splice(cardIndex, 1);
-        this.table.push({ type: 'attack', card, playerId: attacker.id });
+        this.table.push({ type: 'attack', card });
         this.attackRanks.add(card.rank);
-        
-        console.log(`⚔️ ${attacker.username} атакует картой ${card.rank} ${card.suit}`);
 
         this.broadcast();
         return { success: true };
@@ -106,107 +72,74 @@ class Game {
 
     defend(playerId, cardIndex) {
         const defender = this.players[this.currentDefenderIndex];
-        if (!defender || defender.id !== playerId) return { success: false, error: 'Не ваш ход' };
-        if (!this.isBoutActive) return { success: false, error: 'Раунд не активен' };
+        if (defender.id !== playerId) return { success: false, error: 'Не ваш ход' };
 
-        const lastAttack = this.table.filter(t => t.type === 'attack').pop();
-        if (!lastAttack) return { success: false, error: 'Нет атакующей карты' };
+        const lastAttack = this.table[this.table.length - 1];
+        if (!lastAttack || lastAttack.type !== 'attack') return { success: false, error: 'Нет атаки' };
 
         const attackCard = lastAttack.card;
         const defendCard = defender.hand[cardIndex];
-        if (!defendCard) return { success: false, error: 'Карта не найдена' };
 
         if (this.canBeat(attackCard, defendCard)) {
             defender.hand.splice(cardIndex, 1);
-            this.table.push({ type: 'defend', card: defendCard, playerId: defender.id });
-            
-            console.log(`🛡️ ${defender.username} защищается картой ${defendCard.rank} ${defendCard.suit}`);
+            this.table.push({ type: 'defend', card: defendCard });
 
-            // Проверка на даму (завершение хода)
             if (defendCard.rank === 'Q') {
-                console.log(`♕ Дама! Ход завершается!`);
-                this.endBout(true);
+                this.endBout(true); // Дама завершает период
             }
-
             this.broadcast();
             return { success: true };
         }
-
         return { success: false, error: 'Нельзя побить этой картой' };
     }
 
     endBout(success = true) {
         if (success) {
-            console.log(`✅ Раунд завершен, стол очищается`);
             this.table = [];
             this.attackRanks.clear();
-            
-            // Ход переходит следующему игроку после защитника
-            this.currentAttackerIndex = this.currentDefenderIndex;
-            this.currentDefenderIndex = (this.currentAttackerIndex + 1) % this.players.length;
-            
-            console.log(`🔄 Новый атакующий: ${this.players[this.currentAttackerIndex].username}`);
-            
-            this.checkGameEnd();
-            this.broadcast();
         }
+        // Передача хода следующему игроку
+        this.currentAttackerIndex = this.currentDefenderIndex;
+        this.currentDefenderIndex = (this.currentAttackerIndex + 1) % this.players.length;
+        this.checkWinCondition();
+        this.broadcast();
     }
 
     takeCards(playerId) {
         const defender = this.players[this.currentDefenderIndex];
-        if (!defender || defender.id !== playerId) return { success: false, error: 'Не ваш ход' };
+        if (defender.id !== playerId) return { success: false };
 
-        console.log(`📥 ${defender.username} забирает ${this.table.length} карт со стола`);
-        
-        // Защитник забирает все карты со стола
         defender.hand.push(...this.table.map(t => t.card));
         this.table = [];
         this.attackRanks.clear();
 
-        // Ход переходит следующему игроку
+        // Пропускает ход, ход переходит следующему (справа от него)
         this.currentAttackerIndex = (this.currentDefenderIndex + 1) % this.players.length;
         this.currentDefenderIndex = (this.currentAttackerIndex + 1) % this.players.length;
 
-        this.checkGameEnd();
+        this.checkWinCondition();
         this.broadcast();
         return { success: true };
     }
 
     endTurn(playerId) {
-        const attacker = this.players[this.currentAttackerIndex];
-        if (attacker && attacker.id === playerId) {
-            console.log(`✅ ${attacker.username} завершает ход`);
+        if (this.players[this.currentAttackerIndex].id === playerId) {
             this.endBout(true);
             return { success: true };
         }
-        return { success: false, error: 'Не ваш ход' };
+        return { success: false };
     }
 
-    checkGameEnd() {
-        const activePlayers = this.players.filter(p => p.hand.length > 0);
-        
-        if (activePlayers.length === 1) {
-            const winner = this.players.find(p => p.hand.length === 0);
-            if (winner) {
-                console.log(`🏆 ПОБЕДИТЕЛЬ: ${winner.username}`);
-                this.gameWinner = winner.username;
-                this.players.forEach(p => {
-                    p.socket.emit('gameOver', { winner: winner.username, losers: activePlayers.map(a => a.username) });
-                });
-            }
-        } else if (activePlayers.length === 2 && this.deck.length > 0) {
-            console.log(`📦 Осталось 2 игрока, добираем по 6 карт из колоды`);
-            const remainingPlayers = activePlayers;
-            remainingPlayers.forEach(player => {
-                const needed = 6 - player.hand.length;
-                if (needed > 0 && this.deck.length >= needed) {
-                    const newCards = this.deck.splice(0, needed);
-                    player.hand.push(...newCards);
-                    console.log(`${player.username} добирает ${newCards.length} карт`);
-                }
+    checkWinCondition() {
+        const active = this.players.filter(p => p.hand.length > 0);
+        if (active.length === 1) {
+            const winner = active[0];
+            this.gameOver = true;
+            this.players.forEach(p => {
+                p.socket.emit('gameOver', { winner: winner.username });
             });
-            this.broadcast();
         }
+        // При 2 игроках — продолжаем (раздача по 6 карт уже в dealCards)
     }
 
     getStateForPlayer(playerId) {
@@ -214,37 +147,24 @@ class Game {
         const player = this.players[myIndex];
 
         return {
-            myHand: player.hand.map(c => ({ suit: c.suit, rank: c.rank, value: c.value, isTrump: c.isTrump })),
-            table: this.table.map(t => ({ type: t.type, card: { suit: t.card.suit, rank: t.card.rank, value: t.card.value } })),
+            myHand: player.hand,
+            table: this.table,
             players: this.players.map(p => ({
                 id: p.id,
                 username: p.username,
                 cardCount: p.hand.length
             })),
-            currentAttacker: this.players[this.currentAttackerIndex]?.username || null,
-            currentDefender: this.players[this.currentDefenderIndex]?.username || null,
+            currentAttacker: this.players[this.currentAttackerIndex].username,
+            currentDefender: this.players[this.currentDefenderIndex].username,
             isMyTurnAttack: myIndex === this.currentAttackerIndex,
             isMyTurnDefend: myIndex === this.currentDefenderIndex,
-            trumpSuit: this.trumpSuit,
-            gameWinner: this.gameWinner,
-            canEndTurn: myIndex === this.currentAttackerIndex && this.table.length > 0,
-            canTakeCards: myIndex === this.currentDefenderIndex && this.table.length > 0
+            trumpSuit: this.trumpSuit
         };
     }
 
     broadcast() {
-        console.log(`📡 Отправка состояния игры ${this.players.length} игрокам`);
-        console.log(`Текущий атакующий индекс: ${this.currentAttackerIndex}, защитник: ${this.currentDefenderIndex}`);
-        
         this.players.forEach(p => {
-            if (p.socket) {
-                const state = this.getStateForPlayer(p.id);
-                console.log(`  → отправлено ${p.username}: ${p.hand.length} карт в руке`);
-                console.log(`     isMyTurnAttack: ${state.isMyTurnAttack}, isMyTurnDefend: ${state.isMyTurnDefend}`);
-                p.socket.emit('gameState', state);
-            } else {
-                console.log(`  → у ${p.username} нет socket!`);
-            }
+            p.socket.emit('gameState', this.getStateForPlayer(p.id));
         });
     }
 }

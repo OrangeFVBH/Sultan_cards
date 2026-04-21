@@ -30,7 +30,7 @@ function initGameUI() {
             // Восстанавливаем соединение с игрой
             if (playerName) {
                 console.log('🔄 Восстановление соединения для', playerName);
-                socket.emit('reconnectGame', playerName);
+                socket.emit('requestGameState', playerName);
             }
         });
         
@@ -80,6 +80,7 @@ function updateGameState(state) {
     renderMyHand(state.myHand);
     renderPlayersInfo(state.players, state.currentAttacker, state.currentDefender);
     renderActionButtons(state);
+    
 }
 
 function renderStatus(state) {
