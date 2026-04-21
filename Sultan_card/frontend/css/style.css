@@ -1,138 +1,181 @@
-body { 
-    background: #0a2f23; 
-    margin: 0; 
-    height: 100vh; 
-    overflow: hidden; 
-    font-family: Arial, sans-serif; 
+:root {
+    --gold: #ffd700;
+    --green-bright: #00ff96;
+    --bg-dark: #041f19;
+    --card-shadow: 0 4px 12px rgba(0,0,0,0.5);
 }
 
-#gameContainer {
-    position: relative;
-    flex-grow: 1; 
-    display: flex;
-    flex-direction: column;
-    width: 100vw;
-    overflow: hidden;
-}
-
-.square-field {
-    display: grid;
-    grid-template-columns: 120px 1fr 120px;
-    grid-template-rows: 1fr 1.5fr 1.2fr;
-    gap: 10px;
-    height: 100%;
-    width: 100%;
-    padding: 10px;
-    background: #041f19;
+* {
+    user-select: none;
     box-sizing: border-box;
 }
 
-.player-zone {
-    background: rgba(255,255,255,0.05);
-    border-radius: 12px;
+body {
+    margin: 0;
+    padding: 0;
+    height: 100vh;
+    background: var(--bg-dark);
+    font-family: 'Roboto', sans-serif;
+    color: white;
+    overflow: hidden;
+}
+
+/* Кнопка выхода */
+.minimal-exit {
+    position: fixed;
+    top: 15px;
+    right: 15px;
+    z-index: 1000;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: white;
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 18px;
+    transition: 0.3s;
+}
+
+.minimal-exit:hover {
+    background: #ff4444;
+    border-color: #ff4444;
+}
+
+/* Контейнер игры */
+#gameContainer {
+    width: 100vw;
+    height: 100vh;
     display: flex;
     flex-direction: column;
+    background: radial-gradient(circle, #0b3d2e 0%, #041f19 100%);
+}
+
+.game-board {
+    position: relative;
+    flex-grow: 1;
+    display: grid;
+    grid-template-columns: 100px 1fr 100px;
+    grid-template-rows: 80px 1fr 160px;
+    padding: 10px;
+}
+
+/* Компактные плашки игроков */
+.player-badge {
+    background: rgba(0,0,0,0.6);
+    border: 1px solid var(--green-bright);
+    padding: 5px 12px;
+    border-radius: 20px;
+    display: flex;
     align-items: center;
     justify-content: center;
-    padding: 8px;
-    border: 2px solid rgba(0, 255, 150, 0.4);
-    text-align: center;
+    box-shadow: 0 0 15px rgba(0,255,150,0.2);
+    height: fit-content;
 }
 
-/* Центрируем зоны игроков */
-.player-zone.top { grid-column: 2 / 3; grid-row: 1 / 2; }
-.player-zone.left { grid-column: 1 / 2; grid-row: 2 / 3; }
-.player-zone.right { grid-column: 3 / 4; grid-row: 2 / 3; }
+.player-top { grid-column: 2; justify-self: center; align-self: center; }
+.player-left { grid-column: 1; grid-row: 2; justify-self: center; align-self: center; transform: rotate(-90deg); }
 
-.my-zone { 
-    border-color: #ffd700; 
-    background: rgba(11, 61, 46, 0.8);
-    grid-column: 1 / 4; /* Расширяем на всю ширину для удобства карт */
-    grid-row: 3 / 4;
-    display: flex;
-    flex-direction: column;
+.badge-info { text-align: center; }
+.p-name { 
+    font-family: 'Oswald', sans-serif; 
+    color: var(--green-bright); 
+    font-size: 14px; 
+    text-transform: uppercase;
 }
+.p-cards { font-size: 12px; color: #ccc; }
 
-.hand {
+/* Стол */
+.main-table {
+    grid-column: 2;
+    grid-row: 2;
     display: flex;
-    gap: 5px;
-    flex-wrap: nowrap; /* Запрещаем перенос, чтобы не плодить высоту */
+    align-items: center;
     justify-content: center;
-    align-items: flex-end;
-    padding: 5px;
-    width: 100%;
-    overflow-x: visible; /* Убираем скролл */
-    overflow-y: hidden;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.02);
 }
 
-/* Убираем скроллбары в принципе */
-.hand::-webkit-scrollbar {
-    display: none;
+.table-pairs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 25px;
+    justify-content: center;
+    perspective: 1000px;
+}
+
+/* Эффект наложения карт (смещение) */
+.card-pair {
+    position: relative;
+    width: 70px;
+    height: 100px;
 }
 
 .card {
     width: 70px;
     height: 100px;
+    background: white;
     border-radius: 6px;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-    flex-shrink: 0; /* Чтобы карты не сжимались в кашу */
-    transition: transform 0.2s;
-    background: #fff;
+    box-shadow: var(--card-shadow);
+    border: 1px solid #ddd;
 }
 
-.my-card:hover {
-    transform: translateY(-20px) scale(1.1);
-    z-index: 10;
-}
-
-.table-zone {
-    grid-column: 2 / 3;
-    grid-row: 2 / 3;
-    background: rgba(26, 61, 46, 0.5);
-    border: 3px dashed rgba(0, 255, 150, 0.3);
-    border-radius: 15px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 10px;
-}
-
-.status {
+/* Карта защиты смещается на 15px вправо и вниз */
+.card-pair .card:nth-child(2) {
     position: absolute;
-    top: 10px; /* Теперь отсчитывается от верха игрового поля */
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(0,0,0,0.85);
-    color: #ffd700;
-    padding: 8px 20px;
-    border-radius: 50px;
-    font-size: 14px;
-    font-weight: bold;
-    z-index: 100;
-    box-shadow: 0 0 15px rgba(255,215,0,0.3);
-    pointer-events: none;
+    top: 15px;
+    left: 15px;
+    z-index: 10;
+    transform: rotate(5deg);
+    border: 2px solid var(--green-bright);
 }
 
-/* Мобильная адаптация */
-@media (max-width: 768px) {
-    .square-field {
-        grid-template-columns: 80px 1fr 80px;
-        gap: 5px;
-    }
+/* Ваша рука */
+.my-area {
+    grid-column: 1 / 4;
+    grid-row: 3;
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    padding-bottom: 10px;
+}
 
-    .card {
-        width: 50px;
-        height: 75px;
-        margin-left: -15px; /* Нахлест карт, чтобы влезли в ряд */
-    }
-    
-    .card:first-child { margin-left: 0; }
+.hand {
+    display: flex;
+    gap: -10px; /* Карты чуть внахлест */
+}
 
-    .status {
-        font-size: 11px;
-        top: 5px;
-        width: 80%;
-    }
+.hand .card {
+    cursor: pointer;
+    transition: 0.2s ease-out;
+}
 
-    .my-label { font-size: 10px; margin-bottom: 2px; }
+.hand .card:hover {
+    transform: translateY(-30px) scale(1.1);
+    z-index: 100;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.6);
+}
+
+/* Уведомление (Status) */
+.status-toast {
+    position: fixed;
+    top: 20px;
+    left: 20px;
+    background: var(--gold);
+    color: black;
+    padding: 6px 15px;
+    border-radius: 4px;
+    font-weight: bold;
+    font-family: 'Oswald', sans-serif;
+    font-size: 13px;
+    z-index: 1100;
+    box-shadow: 4px 4px 0px rgba(0,0,0,0.2);
+    text-transform: uppercase;
+}
+
+/* Адаптация под мелкие экраны */
+@media (max-width: 600px) {
+    .card { width: 50px; height: 75px; }
+    .card-pair { width: 50px; height: 75px; }
+    .game-board { grid-template-rows: 60px 1fr 130px; }
 }
