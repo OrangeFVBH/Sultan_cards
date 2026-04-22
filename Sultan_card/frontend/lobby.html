@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Лобби - Дурак 36 карт</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #0a2f23 0%, #041f19 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            padding: 20px;
+        }
+        
+        .lobby-box {
+            background: rgba(5, 40, 31, 0.95);
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            box-shadow: 0 0 50px rgba(0, 255, 150, 0.4);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 255, 150, 0.3);
+            min-width: 400px;
+        }
+        
+        h1 {
+            color: #00ff96;
+            margin-bottom: 10px;
+            font-size: 32px;
+        }
+        
+        .user-info {
+            background: rgba(0, 255, 150, 0.1);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .username {
+            color: #00ff96;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        .stats {
+            color: #ffd700;
+            font-size: 14px;
+        }
+        
+        .logout-btn {
+            background: rgba(255, 68, 68, 0.2);
+            color: #ff4444;
+            border: 1px solid #ff4444;
+            padding: 5px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .logout-btn:hover {
+            background: #ff4444;
+            color: white;
+        }
+        
+        .players-list {
+            margin: 30px 0;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+        }
+        
+        .players-list h3 {
+            color: #00ff96;
+            margin-bottom: 15px;
+        }
+        
+        .player-item {
+            padding: 10px;
+            margin: 5px 0;
+            background: rgba(0, 255, 150, 0.1);
+            border-radius: 5px;
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .player-status {
+            font-size: 12px;
+            color: #00ff96;
+        }
+        
+        .waiting-text {
+            color: #ffd700;
+            margin: 20px 0;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        
+        .status {
+            margin: 20px 0;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        
+        .status.ready {
+            background: rgba(0, 255, 150, 0.2);
+            color: #00ff96;
+        }
+        
+        .status.waiting {
+            background: rgba(255, 215, 0, 0.2);
+            color: #ffd700;
+        }
+        
+        .status.error {
+            background: rgba(255, 68, 68, 0.2);
+            color: #ff4444;
+        }
+        
+        button {
+            width: 100%;
+            padding: 16px;
+            margin: 10px 0;
+            background: linear-gradient(135deg, #00ff96 0%, #00cc7a 100%);
+            color: #05281f;
+            border: none;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 255, 150, 0.3);
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .back-btn {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .loading {
+            animation: pulse 1s infinite;
+        }
+
+        .leaderboard-btn {
+            background: linear-gradient(135deg, #ffd700 0%, #ff9800 100%);
+            color: #05281f;
+        }
+
+        .leaderboard-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(255, 215, 0, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="lobby-box">
+        <h1>🎮 ИГРОВОЕ ЛОББИ</h1>
+        
+        <div class="user-info">
+            <div>
+                <div class="username" id="username">Загрузка...</div>
+                <div class="stats" id="stats">Побед: 0 | Поражений: 0</div>
+            </div>
+            <button class="logout-btn" onclick="logout()">Выйти</button>
+        </div>
+        
+        <div class="players-list">
+            <h3>Игроки в лобби (<span id="playerCount">0</span>/3)</h3>
+            <div id="playersList">
+                <div class="player-item">Ожидание игроков...</div>
+            </div>
+        </div>
+        
+        <div id="status" class="status waiting">🔄 Подключение к серверу...</div>
+        <div class="waiting-text" id="waitingText">Ожидание других игроков (нужно 3 человека)</div>
+        
+        <button id="backToLobbyBtn" style="display:none;" onclick="rejoinLobby()">🔄 Вернуться в лобби</button>
+        <button class="back-btn" onclick="goBack()">← Назад</button>
+        <button class="leaderboard-btn" onclick="showLeaderboard()">🏆 Таблица лидеров</button>
+    </div>
+    
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        let socket = null;
+        let currentUser = null;
+        let players = [];
+        let gameStarted = false;
+        
+        async function loadUserData() {
+            try {
+                const response = await fetch('/api/auth/check');
+                const data = await response.json();
+                
+                if (!data.authenticated) {
+                    window.location.href = '/';
+                    return;
+                }
+                
+                currentUser = data.username;
+                document.getElementById('username').textContent = currentUser;
+                document.getElementById('stats').textContent = `🏆 Побед: ${data.stats.wins} | 💔 Поражений: ${data.stats.losses}`;
+                
+                // Подключаемся к сокету
+                connectSocket();
+            } catch (error) {
+                console.error('Ошибка загрузки данных:', error);
+                window.location.href = '/';
+            }
+        }
+        
+        function connectSocket() {
+            if (socket && socket.connected) {
+                console.log('Сокет уже подключен');
+                return;
+            }
+            
+            socket = io({
+                reconnection: true,
+                reconnectionAttempts: 5,
+                reconnectionDelay: 1000
+            });
+            
+            socket.on('connect', () => {
+                console.log('✅ Подключен к серверу, id:', socket.id);
+                updateStatus('Подключено к серверу', 'ready');
+                // Присоединяемся к лобби
+                socket.emit('joinLobby', currentUser);
+            });
+            
+            socket.on('lobbyUpdate', (playersData) => {
+                console.log('📋 Обновление лобби:', playersData);
+                players = playersData;
+                updatePlayersList(playersData);
+                document.getElementById('playerCount').textContent = playersData.length;
+                
+                if (playersData.length === 3) {
+                    updateStatus('Все игроки собраны! Игра начинается...', 'ready');
+                    document.getElementById('waitingText').innerHTML = '🎲 Игра начинается...';
+                } else {
+                    document.getElementById('waitingText').innerHTML = `Ожидание других игроков (нужно 3 человека, сейчас ${playersData.length})`;
+                }
+            });
+            
+            socket.on('gameStarted', () => {
+                if (gameStarted) return;
+                gameStarted = true;
+                console.log('🎮 Получен сигнал gameStarted!');
+                updateStatus('Игра начинается! Перенаправление...', 'ready');
+                
+                setTimeout(() => {
+                    window.location.href = '/game.html';
+                }, 500);
+            });
+            
+            socket.on('error', (error) => {
+                console.error('Ошибка от сервера:', error);
+                updateStatus('Ошибка: ' + error, 'error');
+            });
+            
+            socket.on('connect_error', (error) => {
+                console.error('Ошибка подключения:', error);
+                updateStatus('Ошибка подключения к серверу. Переподключение...', 'error');
+            });
+            
+            socket.on('disconnect', () => {
+                console.log('❌ Отключено от сервера');
+                updateStatus('Отключено от сервера. Переподключение...', 'error');
+            });
+        }
+        
+        function updatePlayersList(playersList) {
+            const container = document.getElementById('playersList');
+            
+            if (!playersList || playersList.length === 0) {
+                container.innerHTML = '<div class="player-item">Ожидание игроков...</div>';
+                return;
+            }
+            
+            container.innerHTML = playersList.map(player => `
+                <div class="player-item">
+                    <span>${player.username}</span>
+                    <span class="player-status">${player.username === currentUser ? '👤 Вы' : '🎴'}</span>
+                </div>
+            `).join('');
+        }
+        
+        function updateStatus(message, type) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+            console.log(`Статус: ${type} - ${message}`);
+        }
+        
+        function rejoinLobby() {
+            gameStarted = false;
+            updateStatus('Переподключение...', 'waiting');
+            if (socket) {
+                socket.disconnect();
+                socket = null;
+            }
+            setTimeout(() => {
+                connectSocket();
+            }, 500);
+        }
+        
+        async function logout() {
+            try {
+                await fetch('/api/auth/logout', { method: 'POST' });
+                sessionStorage.removeItem('playerName');
+                if (socket) socket.disconnect();
+                window.location.href = '/';
+            } catch (error) {
+                console.error('Ошибка выхода:', error);
+                window.location.href = '/';
+            }
+        }
+        
+        function goBack() {
+            window.location.href = '/';
+        }
+
+        function showLeaderboard() {
+            window.location.href = '/leaderboard.html';
+        }
+        
+        // Проверяем, не перенаправлены ли мы с игры обратно
+        if (sessionStorage.getItem('gameInterrupted') === 'true') {
+            sessionStorage.removeItem('gameInterrupted');
+            document.getElementById('backToLobbyBtn').style.display = 'block';
+        }
+        
+        // Загружаем данные пользователя при загрузке страницы
+        loadUserData();
+    </script>
+</body>
+</html>

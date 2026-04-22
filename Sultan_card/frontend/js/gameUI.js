@@ -4,13 +4,21 @@ let myHand = [];
 let tableCards = [];
 let socket = null;
 let playerName = null;
+let gameReady = false;
+let stateRequestCount = 0;
 
 function initGameUI() {
     console.log('initGameUI started');
     
-    // Получаем имя игрока из sessionStorage
     playerName = sessionStorage.getItem('playerName');
     console.log('Player name from session:', playerName);
+    
+    if (!playerName) {
+        console.error('Нет имени игрока!');
+        alert('Ошибка: не удалось определить игрока. Перенаправление в лобби...');
+        window.location.href = '/lobby.html';
+        return;
+    }
     
     if (typeof io === 'undefined') {
         console.error('socket.io не загружен!');
@@ -21,50 +29,76 @@ function initGameUI() {
     if (!socket) {
         socket = io({
             reconnection: true,
-            reconnectionAttempts: 5
+            reconnectionAttempts: 10,
+            reconnectionDelay: 1000
         });
         
         socket.on('connect', () => {
             console.log('✅ Socket connected in gameUI, id:', socket.id);
+            gameReady = true;
+            stateRequestCount = 0;
             
-            // Восстанавливаем соединение с игрой
-            if (playerName) {
-                console.log('🔄 Восстановление соединения для', playerName);
-                socket.emit('requestGameState', playerName);
-            }
+            // Запрашиваем состояние игры несколько раз с интервалом
+            const requestState = () => {
+                if (socket && socket.connected) {
+                    console.log(`🔄 Запрос состояния игры (попытка ${stateRequestCount + 1}) для`, playerName);
+                    socket.emit('requestGameState', playerName);
+                    stateRequestCount++;
+                    
+                    if (stateRequestCount < 5) {
+                        setTimeout(requestState, 1000);
+                    }
+                }
+            };
+            
+            requestState();
         });
         
         socket.on('gameState', (state) => {
-            console.log('Game state received!', state);
-            if (state.myHand) {
-                console.log('Карт в руке:', state.myHand.length);
-                if (state.myHand.length > 0) {
-                    console.log('Первая карта:', state.myHand[0]);
-                }
+            console.log('📦 Game state received!', state);
+            
+            if (!state || !state.myHand) {
+                console.warn('⚠️ Получен пустой state или нет myHand');
+                return;
             }
+            
+            if (state.myHand.length === 0 && !state.gameWinner) {
+                console.warn('⚠️ Получен state с пустой рукой, возможно игра еще не началась');
+                return;
+            }
+            
+            console.log('✅ Обновление игрового состояния');
+            console.log(`Карт в руке: ${state.myHand.length}`);
+            if (state.myHand.length > 0) {
+                console.log('Первая карта в руке:', state.myHand[0]);
+            }
+            console.log(`Атакует: ${state.currentAttacker}, Защищается: ${state.currentDefender}`);
+            console.log(`Моя очередь атаковать: ${state.isMyTurnAttack}`);
+            console.log(`Моя очередь защищаться: ${state.isMyTurnDefend}`);
+            
             updateGameState(state);
         });
         
         socket.on('gameOver', (data) => {
-            console.log('Game over:', data);
+            console.log('🏁 Game over:', data);
             alert(`Игра окончена!\nПобедитель: ${data.winner}`);
             setTimeout(() => {
-                window.location.href = '/';
+                window.location.href = '/lobby.html';
             }, 3000);
         });
         
         socket.on('error', (error) => {
-            console.error('Socket error:', error);
+            console.error('❌ Socket error:', error);
             alert(error);
         });
         
-        socket.on('playerLeft', (data) => {
-            console.log('Player left:', data);
-            alert(data.message);
-        });
-        
         socket.on('disconnect', () => {
-            console.log('Socket disconnected in gameUI');
+            console.log('🔌 Socket disconnected in gameUI');
+            gameReady = false;
+            const statusBar = document.getElementById('statusBar');
+            if (statusBar) {
+                statusBar.innerHTML = '⚠️ Потеря соединения с сервером. Переподключение...';
+            }
         });
     }
 }
@@ -80,7 +114,6 @@ function updateGameState(state) {
     renderMyHand(state.myHand);
     renderPlayersInfo(state.players, state.currentAttacker, state.currentDefender);
     renderActionButtons(state);
-    
 }
 
 function renderStatus(state) {
@@ -88,50 +121,60 @@ function renderStatus(state) {
     if (!statusBar) return;
     
     if (state.gameWinner) {
-        statusBar.textContent = `🏆 ПОБЕДИТЕЛЬ: ${state.gameWinner} 🏆`;
-        statusBar.style.color = '#ffd700';
+        statusBar.innerHTML = `🏆 ПОБЕДИТЕЛЬ: ${state.gameWinner} 🏆`;
+        statusBar.style.background = '#ffd700';
+        statusBar.style.color = '#000';
         return;
     }
     
+    let statusHtml = '';
     if (isMyAttackTurn) {
-        statusBar.innerHTML = '🔥 ВЫ АТАКУЕТЕ 🔥<br><span style="font-size:14px">Нажмите на карту, чтобы сходить</span>';
-        statusBar.style.color = '#ff9800';
+        statusHtml = '🔥 ВЫ АТАКУЕТЕ 🔥<br><span style="font-size:12px">Нажмите на карту, чтобы сходить</span>';
+        statusBar.style.background = '#ff9800';
     } else if (isMyDefendTurn) {
-        statusBar.innerHTML = '🛡️ ВЫ ОТБИВАЕТЕСЬ 🛡️<br><span style="font-size:14px">Нажмите на карту, чтобы побить</span>';
-        statusBar.style.color = '#4caf50';
+        statusHtml = '🛡️ ВЫ ОТБИВАЕТЕСЬ 🛡️<br><span style="font-size:12px">Нажмите на карту, чтобы побить</span>';
+        statusBar.style.background = '#4caf50';
     } else {
-        statusBar.innerHTML = `🎴 Ходит: ${state.currentAttacker || '—'} → отбивается: ${state.currentDefender || '—'}<br><span style="font-size:14px">Козырь: ♢ БУБНЫ</span>`;
-        statusBar.style.color = '#fff';
+        statusHtml = `🎴 Ходит: ${state.currentAttacker || '—'} → отбивается: ${state.currentDefender || '—'}<br><span style="font-size:12px">Козырь: ♢ БУБНЫ</span>`;
+        statusBar.style.background = '#1d1d1d';
     }
+    
+    statusBar.innerHTML = statusHtml;
+    statusBar.style.color = '#fff';
 }
 
 function renderPlayersInfo(players, attacker, defender) {
     const playerTop = document.getElementById('playerTop');
     const playerLeft = document.getElementById('playerLeft');
-    const playerRight = document.getElementById('playerRight');
     
-    if (!playerTop || !playerLeft || !playerRight) return;
+    if (!playerTop || !playerLeft) return;
     
     const otherPlayers = players.filter(p => p.id !== socket.id);
     
-    const zones = [playerTop, playerLeft, playerRight];
-    otherPlayers.forEach((player, index) => {
-        if (zones[index]) {
-            let roleHtml = '';
-            if (player.username === attacker) roleHtml = '<span class="role-attacker">⚔️ АТАКУЕТ</span>';
-            if (player.username === defender) roleHtml = '<span class="role-defender">🛡️ ОТБИВАЕТСЯ</span>';
-            
-            zones[index].innerHTML = `
-                <div class="player-name">${player.username}</div>
-                <div class="player-cards">📋 ${player.cardCount} карт</div>
-                ${roleHtml}
-            `;
-        }
-    });
-}
-
-function getCardImagePath(card) {
-    return `/cards/${card.rank}_of_${card.suit}.png`;
+    // Для 3 игроков: один сверху, один слева
+    if (otherPlayers[0]) {
+        let roleHtml = '';
+        if (otherPlayers[0].username === attacker) roleHtml = '<div class="role-badge attacker">⚔️ АТАКУЕТ</div>';
+        if (otherPlayers[0].username === defender) roleHtml = '<div class="role-badge defender">🛡️ ОТБИВАЕТСЯ</div>';
+        
+        playerTop.innerHTML = `
+            <div class="player-name">${otherPlayers[0].username}</div>
+            <div class="player-cards">📋 ${otherPlayers[0].cardCount} карт</div>
+            ${roleHtml}
+        `;
+    }
+    
+    if (otherPlayers[1]) {
+        let roleHtml = '';
+        if (otherPlayers[1].username === attacker) roleHtml = '<div class="role-badge attacker">⚔️ АТАКУЕТ</div>';
+        if (otherPlayers[1].username === defender) roleHtml = '<div class="role-badge defender">🛡️ ОТБИВАЕТСЯ</div>';
+        
+        playerLeft.innerHTML = `
+            <div class="player-name">${otherPlayers[1].username}</div>
+            <div class="player-cards">📋 ${otherPlayers[1].cardCount} карт</div>
+            ${roleHtml}
+        `;
+    }
 }
 
 function createCardImage(card, className, onClickHandler = null, cardIndex = null) {
@@ -174,18 +217,41 @@ function createCardImage(card, className, onClickHandler = null, cardIndex = nul
     
     if (onClickHandler && cardIndex !== null) {
         div.style.cursor = 'pointer';
-        div.onclick = () => onClickHandler(cardIndex);
+        div.onclick = (e) => {
+            e.stopPropagation();
+            onClickHandler(cardIndex);
+        };
     }
     
     if (card.rank === 'Q') {
         const queenMark = document.createElement('div');
         queenMark.className = 'queen-mark';
         queenMark.textContent = '♕';
+        queenMark.style.cssText = `
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            background: gold;
+            color: red;
+            border-radius: 50%;
+            width: 25px;
+            height: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 16px;
+            border: 2px solid #ffd700;
+        `;
         div.style.position = 'relative';
         div.appendChild(queenMark);
     }
     
     return div;
+}
+
+function getCardImagePath(card) {
+    return `/cards/${card.rank}_of_${card.suit}.png`;
 }
 
 function renderTable(table) {
@@ -219,6 +285,20 @@ function renderTable(table) {
             const emptyDiv = document.createElement('div');
             emptyDiv.className = 'card-placeholder';
             emptyDiv.textContent = '?';
+            emptyDiv.style.cssText = `
+                width: 70px;
+                height: 100px;
+                background: rgba(0,0,0,0.5);
+                border-radius: 8px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: white;
+                font-size: 24px;
+                position: absolute;
+                top: 15px;
+                left: 15px;
+            `;
             pairDiv.appendChild(emptyDiv);
         }
         
@@ -242,17 +322,23 @@ function renderMyHand(hand) {
     hand.forEach((card, index) => {
         const onClick = (cardIdx) => {
             if (isMyAttackTurn) {
-                console.log(`Атака картой ${card.rank} ${card.suit}, индекс ${cardIdx}`);
+                console.log(`⚔️ Атака картой ${card.rank} ${card.suit}, индекс ${cardIdx}`);
                 socket.emit('attack', { cardIndex: cardIdx }, (result) => {
-                    if (!result || !result.success) {
-                        alert(result?.error || 'Нельзя сходить этой картой');
+                    if (result && !result.success) {
+                        alert(result.error || 'Нельзя сходить этой картой');
+                        console.warn('Ошибка атаки:', result.error);
+                    } else {
+                        console.log('Атака успешна');
                     }
                 });
             } else if (isMyDefendTurn) {
-                console.log(`Защита картой ${card.rank} ${card.suit}, индекс ${cardIdx}`);
+                console.log(`🛡️ Защита картой ${card.rank} ${card.suit}, индекс ${cardIdx}`);
                 socket.emit('defend', { cardIndex: cardIdx }, (result) => {
-                    if (!result || !result.success) {
-                        alert(result?.error || 'Нельзя побить этой картой');
+                    if (result && !result.success) {
+                        alert(result.error || 'Нельзя побить этой картой');
+                        console.warn('Ошибка защиты:', result.error);
+                    } else {
+                        console.log('Защита успешна');
                     }
                 });
             } else {
@@ -271,7 +357,16 @@ function renderActionButtons(state) {
         buttonsDiv = document.createElement('div');
         buttonsDiv.id = 'actionButtons';
         buttonsDiv.className = 'action-buttons';
-        document.getElementById('gameContainer')?.appendChild(buttonsDiv);
+        buttonsDiv.style.cssText = `
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 15px;
+            z-index: 1000;
+        `;
+        document.body.appendChild(buttonsDiv);
     }
     
     buttonsDiv.innerHTML = '';
@@ -280,10 +375,23 @@ function renderActionButtons(state) {
         const endBtn = document.createElement('button');
         endBtn.className = 'action-btn end-btn';
         endBtn.textContent = '✅ Завершить ход';
+        endBtn.style.cssText = `
+            padding: 10px 20px;
+            background: #ff9800;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+        `;
         endBtn.onclick = () => {
             socket.emit('endTurn', {}, (result) => {
-                if (!result || !result.success) alert(result?.error);
-                else console.log('Ход завершен');
+                if (result && !result.success) {
+                    alert(result.error);
+                } else {
+                    console.log('Ход завершен');
+                }
             });
         };
         buttonsDiv.appendChild(endBtn);
@@ -293,10 +401,23 @@ function renderActionButtons(state) {
         const takeBtn = document.createElement('button');
         takeBtn.className = 'action-btn take-btn';
         takeBtn.textContent = '📥 Забрать карты';
+        takeBtn.style.cssText = `
+            padding: 10px 20px;
+            background: #f44336;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+        `;
         takeBtn.onclick = () => {
             socket.emit('takeCards', {}, (result) => {
-                if (!result || !result.success) alert(result?.error);
-                else console.log('Карты забраны');
+                if (result && !result.success) {
+                    alert(result.error);
+                } else {
+                    console.log('Карты забраны');
+                }
             });
         };
         buttonsDiv.appendChild(takeBtn);

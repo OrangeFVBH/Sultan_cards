@@ -8,14 +8,23 @@
     "dev": "nodemon backend/server.js"
   },
   "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.5",
     "express": "^4.18.2",
-    "socket.io": "^4.7.2",
-    "cors": "^2.8.5"
+    "express-session": "^1.19.0",
+    "mongodb": "^7.2.0",
+    "mongoose": "^9.5.0",
+    "socket.io": "^4.7.2"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
   },
-  "keywords": ["durak", "cards", "game", "socketio"],
+  "keywords": [
+    "durak",
+    "cards",
+    "game",
+    "socketio"
+  ],
   "author": "",
   "license": "MIT"
 }

@@ -2,43 +2,84 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Дурак 36 карт</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Дурак 36 карт - Вход</title>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
+        
         body {
             background: linear-gradient(135deg, #0a2f23 0%, #041f19 100%);
-            height: 100vh;
+            min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin: 0;
             font-family: 'Segoe UI', Arial, sans-serif;
+            padding: 20px;
         }
-        .login-box {
+        
+        .container {
+            width: 100%;
+            max-width: 450px;
+        }
+        
+        .auth-box {
             background: rgba(5, 40, 31, 0.95);
-            padding: 50px 60px;
+            padding: 40px;
             border-radius: 20px;
             text-align: center;
             box-shadow: 0 0 50px rgba(0, 255, 150, 0.4);
-            width: 450px;
             backdrop-filter: blur(10px);
             border: 1px solid rgba(0, 255, 150, 0.3);
         }
+        
         h1 {
             color: #00ff96;
-            margin-bottom: 30px;
+            margin-bottom: 10px;
             font-size: 36px;
             text-shadow: 0 0 20px rgba(0, 255, 150, 0.5);
         }
+        
         .subtitle {
             color: #aaa;
             margin-bottom: 30px;
             font-size: 14px;
         }
+        
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            border-bottom: 1px solid rgba(0, 255, 150, 0.3);
+        }
+        
+        .tab {
+            flex: 1;
+            padding: 10px;
+            background: none;
+            border: none;
+            color: #888;
+            font-size: 18px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .tab.active {
+            color: #00ff96;
+            border-bottom: 2px solid #00ff96;
+        }
+        
+        .form {
+            display: none;
+        }
+        
+        .form.active {
+            display: block;
+        }
+        
         input {
             width: 100%;
             padding: 16px;
@@ -47,15 +88,20 @@
             border: 2px solid #00ff96;
             border-radius: 10px;
             color: white;
-            font-size: 18px;
-            text-align: center;
+            font-size: 16px;
             transition: all 0.3s;
         }
+        
         input:focus {
             outline: none;
             border-color: #ffd700;
             box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
         }
+        
+        input::placeholder {
+            color: #888;
+        }
+        
         button {
             width: 100%;
             padding: 16px;
@@ -69,19 +115,37 @@
             cursor: pointer;
             transition: all 0.3s;
         }
-        button:hover {
+        
+        button:hover:not(:disabled) {
             transform: translateY(-2px);
             box-shadow: 0 10px 25px rgba(0, 255, 150, 0.3);
         }
-        button:active {
-            transform: translateY(0);
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
         }
-        #status {
-            margin-top: 20px;
-            color: #ffd700;
-            font-size: 16px;
-            min-height: 24px;
+        
+        .message {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 14px;
+            min-height: 45px;
         }
+        
+        .message.error {
+            background: rgba(255, 68, 68, 0.2);
+            color: #ff4444;
+            border: 1px solid #ff4444;
+        }
+        
+        .message.success {
+            background: rgba(0, 255, 150, 0.2);
+            color: #00ff96;
+            border: 1px solid #00ff96;
+        }
+        
         .rules {
             margin-top: 25px;
             padding-top: 20px;
@@ -90,34 +154,222 @@
             color: #888;
             text-align: left;
         }
+        
         .rules h3 {
             color: #00ff96;
             margin-bottom: 10px;
             font-size: 14px;
         }
+        
         .rules p {
             margin: 5px 0;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #05281f;
+            border-top-color: #00ff96;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            margin-left: 10px;
+            vertical-align: middle;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
         }
     </style>
 </head>
 <body>
-    <div class="login-box">
-        <h1>🎴 ДУРАК 36 карт</h1>
-        <div class="subtitle">Классическая русская игра</div>
-        <input type="text" id="username" placeholder="Ваш ник" maxlength="12" value="Игрок">
-        <button onclick="joinGame()">🎮 Присоединиться к игре</button>
-        <div id="status"></div>
-        <div class="rules">
-            <h3>📜 Правила:</h3>
-            <p>♢ Козырь: <span style="color:#00ff96">БУБНЫ</span></p>
-            <p>♠ Пики бьются только пиками</p>
-            <p>♕ Дама завершает ход</p>
-            <p>🎯 Первый ход: у кого 6♦</p>
-            <p>👥 Игра на 3 игроков</p>
+    <div class="container">
+        <div class="auth-box">
+            <h1>🎴 ДУРАК 36 карт</h1>
+            <div class="subtitle">Классическая русская игра</div>
+            
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('login')">Вход</button>
+                <button class="tab" onclick="switchTab('register')">Регистрация</button>
+            </div>
+            
+            <!-- Форма входа -->
+            <div id="loginForm" class="form active">
+                <input type="text" id="loginUsername" placeholder="Никнейм" maxlength="12" autocomplete="username">
+                <input type="password" id="loginPassword" placeholder="Пароль" autocomplete="current-password">
+                <button onclick="login()">🎮 Войти в игру</button>
+            </div>
+            
+            <!-- Форма регистрации -->
+            <div id="registerForm" class="form">
+                <input type="text" id="regUsername" placeholder="Никнейм (3-12 символов)" maxlength="12" autocomplete="username">
+                <input type="password" id="regPassword" placeholder="Пароль (мин. 3 символа)" autocomplete="new-password">
+                <input type="password" id="regConfirm" placeholder="Подтвердите пароль" autocomplete="new-password">
+                <button onclick="register()">📝 Зарегистрироваться</button>
+            </div>
+            
+            <div id="message" class="message"></div>
+            
+            <div class="rules">
+                <h3>📜 Правила:</h3>
+                <p>♢ Козырь: <span style="color:#00ff96">БУБНЫ</span></p>
+                <p>♠ Пики бьются только пиками</p>
+                <p>♕ Дама завершает ход</p>
+                <p>🎯 Первый ход: у кого 6♦</p>
+                <p>👥 Игра на 3 игроков</p>
+            </div>
         </div>
     </div>
-
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="js/socketClient.js"></script>
+    
+    <script>
+        let isLoading = false;
+        
+        function switchTab(tab) {
+            // Переключаем табы
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            if (tab === 'login') {
+                document.querySelector('.tab:first-child').classList.add('active');
+                document.getElementById('loginForm').classList.add('active');
+                document.getElementById('registerForm').classList.remove('active');
+            } else {
+                document.querySelector('.tab:last-child').classList.add('active');
+                document.getElementById('registerForm').classList.add('active');
+                document.getElementById('loginForm').classList.remove('active');
+            }
+            // Очищаем сообщения
+            showMessage('', '');
+        }
+        
+        function showMessage(text, type) {
+            const msgDiv = document.getElementById('message');
+            msgDiv.textContent = text;
+            msgDiv.className = `message ${type}`;
+        }
+        
+        async function register() {
+            if (isLoading) return;
+            
+            const username = document.getElementById('regUsername').value.trim();
+            const password = document.getElementById('regPassword').value;
+            const confirm = document.getElementById('regConfirm').value;
+            
+            // Валидация
+            if (!username || !password || !confirm) {
+                showMessage('Заполните все поля', 'error');
+                return;
+            }
+            
+            if (username.length < 3 || username.length > 12) {
+                showMessage('Никнейм должен быть от 3 до 12 символов', 'error');
+                return;
+            }
+            
+            if (password.length < 3) {
+                showMessage('Пароль должен быть не менее 3 символов', 'error');
+                return;
+            }
+            
+            if (password !== confirm) {
+                showMessage('Пароли не совпадают', 'error');
+                return;
+            }
+            
+            isLoading = true;
+            const btn = document.querySelector('#registerForm button');
+            btn.disabled = true;
+            btn.innerHTML = 'Регистрация...';
+            
+            try {
+                const response = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showMessage('✅ Регистрация успешна! Теперь войдите в систему', 'success');
+                    setTimeout(() => {
+                        switchTab('login');
+                        document.getElementById('loginUsername').value = username;
+                        document.getElementById('loginPassword').value = '';
+                    }, 2000);
+                } else {
+                    showMessage(data.error || 'Ошибка регистрации', 'error');
+                }
+            } catch (error) {
+                showMessage('Ошибка соединения с сервером', 'error');
+            } finally {
+                isLoading = false;
+                btn.disabled = false;
+                btn.innerHTML = '📝 Зарегистрироваться';
+            }
+        }
+        
+        async function login() {
+            if (isLoading) return;
+            
+            const username = document.getElementById('loginUsername').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            
+            if (!username || !password) {
+                showMessage('Заполните все поля', 'error');
+                return;
+            }
+            
+            isLoading = true;
+            const btn = document.querySelector('#loginForm button');
+            btn.disabled = true;
+            btn.innerHTML = 'Вход...';
+            
+            try {
+                const response = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showMessage('✅ Вход выполнен! Перенаправление...', 'success');
+                    // Сохраняем имя пользователя для игры
+                    sessionStorage.setItem('playerName', username);
+                    // Перенаправляем в лобби
+                    setTimeout(() => {
+                        window.location.href = '/lobby.html';
+                    }, 1000);
+                } else {
+                    showMessage(data.error || 'Ошибка входа', 'error');
+                }
+            } catch (error) {
+                showMessage('Ошибка соединения с сервером', 'error');
+            } finally {
+                isLoading = false;
+                btn.disabled = false;
+                btn.innerHTML = '🎮 Войти в игру';
+            }
+        }
+        
+        // Проверяем, авторизован ли пользователь
+        async function checkAuth() {
+            try {
+                const response = await fetch('/api/auth/check');
+                const data = await response.json();
+                
+                if (data.authenticated) {
+                    // Уже авторизован, перенаправляем в лобби
+                    sessionStorage.setItem('playerName', data.username);
+                    window.location.href = '/lobby.html';
+                }
+            } catch (error) {
+                console.error('Ошибка проверки авторизации:', error);
+            }
+        }
+        
+        // Проверяем авторизацию при загрузке страницы
+        checkAuth();
+    </script>
 </body>
 </html>

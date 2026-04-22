@@ -1,49 +1,228 @@
 const express = require('express');
+const bcrypt = require('bcryptjs');
+const mongoose = require('mongoose');
+const User = require('../models/User');
 const router = express.Router();
 
-// Временное хранилище (в реальном проекте используйте БД)
-const users = new Map();
+// Временное хранилище на случай если MongoDB не доступна
+const tempUsers = new Map();
 
 // Регистрация
-router.post('/register', (req, res) => {
+router.post('/register', async (req, res) => {
+    const { username, password } = req.body;
+    
+    // Валидация
+    if (!username || !password) {
+        return res.status(400).json({ error: 'Заполните все поля' });
+    }
+    
+    if (username.length < 3 || username.length > 12) {
+        return res.status(400).json({ error: 'Ник должен быть от 3 до 12 символов' });
+    }
+    
+    if (password.length < 3) {
+        return res.status(400).json({ error: 'Пароль должен быть не менее 3 символов' });
+    }
+    
+    try {
+        // Проверяем подключение к MongoDB
+        let useMongoDB = mongoose.connection.readyState === 1;
+        
+        if (useMongoDB) {
+            // Проверяем, существует ли пользователь
+            const existingUser = await User.findOne({ username });
+            if (existingUser) {
+                return res.status(400).json({ error: 'Пользователь с таким ником уже существует' });
+            }
+            
+            // Создаем нового пользователя
+            const user = new User({ username, password });
+            await user.save();
+            
+            console.log(`✅ Новый пользователь зарегистрирован в MongoDB: ${username}`);
+            res.json({ success: true, message: 'Регистрация успешна' });
+        } else {
+            // Используем временное хранилище
+            if (tempUsers.has(username)) {
+                return res.status(400).json({ error: 'Пользователь с таким ником уже существует' });
+            }
+            
+            const hashedPassword = await bcrypt.hash(password, 10);
+            tempUsers.set(username, { 
+                password: hashedPassword, 
+                wins: 0, 
+                losses: 0,
+                gamesPlayed: 0
+            });
+            
+            console.log(`✅ Новый пользователь зарегистрирован во временном хранилище: ${username}`);
+            res.json({ success: true, message: 'Регистрация успешна' });
+        }
+    } catch (error) {
+        console.error('Ошибка регистрации:', error);
+        res.status(500).json({ error: 'Ошибка сервера при регистрации' });
+    }
+});
+
+// Логин
+router.post('/login', async (req, res) => {
     const { username, password } = req.body;
     
     if (!username || !password) {
         return res.status(400).json({ error: 'Заполните все поля' });
     }
     
-    if (users.has(username)) {
-        return res.status(400).json({ error: 'Пользователь уже существует' });
+    try {
+        let useMongoDB = mongoose.connection.readyState === 1;
+        let user = null;
+        
+        if (useMongoDB) {
+            user = await User.findOne({ username });
+        } else {
+            user = tempUsers.get(username);
+        }
+        
+        if (!user) {
+            return res.status(401).json({ error: 'Неверный логин или пароль' });
+        }
+        
+        // Проверяем пароль
+        let isValid;
+        if (useMongoDB) {
+            isValid = await user.comparePassword(password);
+        } else {
+            isValid = await bcrypt.compare(password, user.password);
+        }
+        
+        if (!isValid) {
+            return res.status(401).json({ error: 'Неверный логин или пароль' });
+        }
+        
+        // Сохраняем сессию
+        req.session.userId = username;
+        req.session.username = username;
+        
+        console.log(`🔓 Вход в систему: ${username}`);
+        res.json({ 
+            success: true, 
+            username,
+            stats: { 
+                wins: user.wins || 0, 
+                losses: user.losses || 0,
+                gamesPlayed: user.gamesPlayed || 0
+            }
+        });
+    } catch (error) {
+        console.error('Ошибка входа:', error);
+        res.status(500).json({ error: 'Ошибка сервера при входе' });
     }
-    
-    // Простое хеширование (в реальном проекте используйте bcrypt)
-    const hash = Buffer.from(password).toString('base64');
-    users.set(username, { password: hash, wins: 0, losses: 0 });
-    
-    res.json({ success: true, message: 'Регистрация успешна' });
 });
 
-// Логин
-router.post('/login', (req, res) => {
-    const { username, password } = req.body;
-    
-    const user = users.get(username);
-    const hash = Buffer.from(password).toString('base64');
-    
-    if (!user || user.password !== hash) {
-        return res.status(401).json({ error: 'Неверные учетные данные' });
+// Проверка авторизации
+router.get('/check', async (req, res) => {
+    if (req.session.userId) {
+        try {
+            let useMongoDB = mongoose.connection.readyState === 1;
+            let user = null;
+            let stats = { wins: 0, losses: 0, gamesPlayed: 0 };
+            
+            if (useMongoDB) {
+                user = await User.findOne({ username: req.session.userId });
+                if (user) {
+                    stats = { wins: user.wins, losses: user.losses, gamesPlayed: user.gamesPlayed };
+                }
+            } else {
+                user = tempUsers.get(req.session.userId);
+                if (user) {
+                    stats = { wins: user.wins, losses: user.losses, gamesPlayed: user.gamesPlayed };
+                }
+            }
+            
+            if (user) {
+                res.json({ 
+                    authenticated: true, 
+                    username: req.session.username,
+                    stats
+                });
+            } else {
+                req.session.destroy();
+                res.json({ authenticated: false });
+            }
+        } catch (error) {
+            console.error('Ошибка проверки сессии:', error);
+            res.json({ authenticated: false });
+        }
+    } else {
+        res.json({ authenticated: false });
     }
-    
-    res.json({ success: true, username, stats: { wins: user.wins, losses: user.losses } });
+});
+
+// Выход
+router.post('/logout', (req, res) => {
+    req.session.destroy();
+    res.json({ success: true });
 });
 
 // Получить статистику
-router.get('/stats/:username', (req, res) => {
-    const user = users.get(req.params.username);
-    if (!user) {
-        return res.status(404).json({ error: 'Пользователь не найден' });
+router.get('/stats/:username', async (req, res) => {
+    try {
+        let useMongoDB = mongoose.connection.readyState === 1;
+        
+        if (useMongoDB) {
+            const user = await User.findOne({ username: req.params.username });
+            if (!user) {
+                return res.status(404).json({ error: 'Пользователь не найден' });
+            }
+            res.json({ wins: user.wins, losses: user.losses, gamesPlayed: user.gamesPlayed });
+        } else {
+            const user = tempUsers.get(req.params.username);
+            if (!user) {
+                return res.status(404).json({ error: 'Пользователь не найден' });
+            }
+            res.json({ wins: user.wins, losses: user.losses, gamesPlayed: user.gamesPlayed });
+        }
+    } catch (error) {
+        console.error('Ошибка получения статистики:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
     }
-    res.json({ wins: user.wins, losses: user.losses });
+});
+
+// Обновить статистику
+router.post('/update-stats', async (req, res) => {
+    const { username, won } = req.body;
+    
+    try {
+        let useMongoDB = mongoose.connection.readyState === 1;
+        
+        if (useMongoDB) {
+            const user = await User.findOne({ username });
+            if (user) {
+                if (won) {
+                    await user.addWin(); // Используем метод из модели
+                } else {
+                    await user.addLoss(); // Используем метод из модели
+                }
+                console.log(`📊 Статистика обновлена в MongoDB: ${username}`);
+            }
+        } else {
+            const user = tempUsers.get(username);
+            if (user) {
+                if (won) {
+                    user.wins++;
+                } else {
+                    user.losses++;
+                }
+                user.gamesPlayed++;
+                tempUsers.set(username, user);
+                console.log(`📊 Статистика обновлена во временном хранилище: ${username}`);
+            }
+        }
+        
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Ошибка обновления статистики:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
 });
 
 module.exports = router;

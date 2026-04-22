@@ -3,6 +3,9 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const path = require('path');
+const session = require('express-session');
+const mongoose = require('mongoose');
+const connectDB = require('./config/database');
 
 const app = express();
 const server = http.createServer(app);
@@ -11,33 +14,30 @@ const io = new Server(server, {
     allowEIO3: true
 });
 
+// Подключаем MongoDB
+connectDB();
+
+// Middleware
 app.use(cors());
-app.use(express.json()); // Добавлено для парсинга JSON
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, '../frontend')));
 app.use(express.static(path.join(__dirname, '../public')));
 
-// API маршруты для авторизации
-app.post('/api/register', (req, res) => {
-    const { username, password } = req.body;
-    
-    if (!username || !password) {
-        return res.status(400).json({ error: 'Заполните все поля' });
+// Сессии для авторизации
+app.use(session({
+    secret: 'durak-game-secret-key-2024',
+    resave: false,
+    saveUninitialized: false,
+    cookie: { 
+        secure: false,
+        maxAge: 24 * 60 * 60 * 1000
     }
-    
-    // Здесь можно добавить сохранение в БД
-    res.json({ success: true, message: 'Регистрация успешна' });
-});
+}));
 
-app.post('/api/login', (req, res) => {
-    const { username, password } = req.body;
-    
-    if (!username || !password) {
-        return res.status(400).json({ error: 'Заполните все поля' });
-    }
-    
-    // Здесь можно добавить проверку из БД
-    res.json({ success: true, username });
-});
+// Подключаем маршруты авторизации
+const authRoutes = require('./routes/auth');
+app.use('/api/auth', authRoutes);
 
 // Подключаем обработчик игры
 require('./socket/gameHandler')(io);
@@ -45,7 +45,11 @@ require('./socket/gameHandler')(io);
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
     console.log(`🚀 Сервер запущен на http://localhost:${PORT}`);
+    // Проверяем статус подключения к MongoDB
+    if (mongoose.connection.readyState === 1) {
+        console.log('📊 MongoDB статус: Подключена');
+    } else {
+        console.log('📊 MongoDB статус: Не подключена (используется временное хранилище)');
+    }
     console.log('Откройте 3 вкладки браузера для игры');
-    console.log('Козырь: БУБНЫ ♢');
-    console.log('Правило: Пики бьются только пиками');
 });

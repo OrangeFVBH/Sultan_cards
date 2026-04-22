@@ -179,3 +179,60 @@ body {
     .card-pair { width: 50px; height: 75px; }
     .game-board { grid-template-rows: 60px 1fr 130px; }
 }
+
+.role-badge {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 10px;
+    margin-top: 5px;
+    text-align: center;
+}
+
+.role-badge.attacker {
+    background: rgba(255, 152, 0, 0.3);
+    color: #ff9800;
+}
+
+.role-badge.defender {
+    background: rgba(76, 175, 80, 0.3);
+    color: #4caf50;
+}
+
+.player-name {
+    font-family: 'Oswald', sans-serif;
+    color: #00ff96;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+.player-cards {
+    font-size: 12px;
+    color: #ccc;
+}
+
+.empty-text {
+    color: rgba(255,255,255,0.5);
+    text-align: center;
+    font-size: 14px;
+}
+
+.win-message {
+    color: #ffd700;
+    font-size: 24px;
+    text-align: center;
+    padding: 20px;
+    font-weight: bold;
+}
+
+.action-btn {
+    transition: all 0.3s;
+}
+
+.action-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+.action-btn:active {
+    transform: translateY(0);
+}
