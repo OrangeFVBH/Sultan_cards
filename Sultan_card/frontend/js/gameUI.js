@@ -1,11 +1,13 @@
 let isMyAttackTurn = false;
 let isMyDefendTurn = false;
+let isMyAdditionalAttackTurn = false;
 let myHand = [];
 let tableCards = [];
 let socket = null;
 let playerName = null;
 let gameReady = false;
 let stateRequestCount = 0;
+let currentGameState = null;
 
 function initGameUI() {
     console.log('initGameUI started');
@@ -13,7 +15,6 @@ function initGameUI() {
     playerName = sessionStorage.getItem('playerName');
     console.log('Player name from session:', playerName);
     
-    // Получаем lobbyId из URL или сессии
     const urlParams = new URLSearchParams(window.location.search);
     const lobbyId = urlParams.get('lobbyId') || sessionStorage.getItem('currentLobbyId');
     console.log('LobbyId:', lobbyId);
@@ -41,7 +42,6 @@ function initGameUI() {
         socket.on('connect', () => {
             console.log('✅ Socket connected in gameUI, id:', socket.id);
             
-            // Получаем lobbyId из URL или сессии
             const urlParams = new URLSearchParams(window.location.search);
             const lobbyIdFromUrl = urlParams.get('lobbyId') || sessionStorage.getItem('currentLobbyId');
             
@@ -61,11 +61,9 @@ function initGameUI() {
             gameReady = true;
             stateRequestCount = 0;
             
-            // Запрашиваем состояние игры несколько раз
             const requestState = () => {
                 if (socket && socket.connected) {
                     console.log(`🔄 Запрос состояния игры (попытка ${stateRequestCount + 1}) для`, playerName);
-                    console.log(`Текущий socket.currentLobby:`, socket.currentLobby);
                     socket.emit('requestGameState', { username: playerName, lobbyId: socket.currentLobby });
                     stateRequestCount++;
                     
@@ -80,32 +78,20 @@ function initGameUI() {
         
         socket.on('gameState', (state) => {
             console.log('📦 Game state received!', state);
-            
-            if (!state || !state.myHand) {
-                console.warn('⚠️ Получен пустой state или нет myHand');
-                return;
-            }
-            
-            if (state.myHand.length === 0 && !state.gameWinner) {
-                console.warn('⚠️ Получен state с пустой рукой, возможно игра еще не началась');
-                return;
-            }
-            
-            console.log('✅ Обновление игрового состояния');
-            console.log(`Карт в руке: ${state.myHand.length}`);
-            if (state.myHand.length > 0) {
-                console.log('Первая карта в руке:', state.myHand[0]);
-            }
-            console.log(`Атакует: ${state.currentAttacker}, Защищается: ${state.currentDefender}`);
-            console.log(`Моя очередь атаковать: ${state.isMyTurnAttack}`);
-            console.log(`Моя очередь защищаться: ${state.isMyTurnDefend}`);
-            
+            currentGameState = state;
             updateGameState(state);
         });
         
         socket.on('gameOver', (data) => {
             console.log('🏁 Game over:', data);
-            alert(`Игра окончена!\nПобедитель: ${data.winner}`);
+            const isWinner = data.isWinner || (data.winner && data.winner.includes(playerName));
+            if (isWinner) {
+                alert(`🏆 ПОБЕДА! 🏆\n${data.winner}`);
+            } else if (data.winner === 'Ничья - все победители!') {
+                alert(`🤝 НИЧЬЯ! 🤝\n${data.winner}`);
+            } else {
+                alert(`😢 Вы проиграли!\nПобедитель: ${data.winner}`);
+            }
             setTimeout(() => {
                 window.location.href = '/lobby.html';
             }, 3000);
@@ -128,14 +114,28 @@ function initGameUI() {
 }
 
 function updateGameState(state) {
+    if (!state) return;
+    
+    console.log('=== updateGameState ===');
+    console.log('Received state:', {
+        isMyTurnAttack: state.isMyTurnAttack,
+        isMyTurnDefend: state.isMyTurnDefend,
+        isMyAdditionalAttackTurn: state.isMyAdditionalAttackTurn,
+        tableLength: state.table?.length,
+        table: state.table?.map(t => ({ type: t.type, card: t.card?.rank + t.card?.suit }))
+    });
+    
     isMyAttackTurn = state.isMyTurnAttack;
     isMyDefendTurn = state.isMyTurnDefend;
+    isMyAdditionalAttackTurn = state.isMyAdditionalAttackTurn || false;
     myHand = state.myHand || [];
     tableCards = state.table || [];
     
+    window.gameWinner = state.gameWinner;
+    
     renderStatus(state);
     renderTable(state.table);
-    renderMyHand(state.myHand);
+    renderMyHand(state.myHand, state);
     renderPlayersInfo(state.players, state.currentAttacker, state.currentDefender);
     renderActionButtons(state);
 }
@@ -145,14 +145,21 @@ function renderStatus(state) {
     if (!statusBar) return;
     
     if (state.gameWinner) {
-        statusBar.innerHTML = `🏆 ПОБЕДИТЕЛЬ: ${state.gameWinner} 🏆`;
+        if (state.gameWinner.includes(playerName)) {
+            statusBar.innerHTML = `🏆 ВЫ ПОБЕДИТЕЛЬ! 🏆`;
+        } else {
+            statusBar.innerHTML = `🏆 ПОБЕДИТЕЛЬ: ${state.gameWinner} 🏆`;
+        }
         statusBar.style.background = '#ffd700';
         statusBar.style.color = '#000';
         return;
     }
     
     let statusHtml = '';
-    if (isMyAttackTurn) {
+    if (isMyAdditionalAttackTurn) {
+        statusHtml = '➕ ВЫ МОЖЕТЕ ПОДКИНУТЬ КАРТЫ ➕<br><span style="font-size:12px">Нажмите на карту, чтобы подкинуть</span>';
+        statusBar.style.background = '#9c27b0';
+    } else if (isMyAttackTurn) {
         statusHtml = '🔥 ВЫ АТАКУЕТЕ 🔥<br><span style="font-size:12px">Нажмите на карту, чтобы сходить</span>';
         statusBar.style.background = '#ff9800';
     } else if (isMyDefendTurn) {
@@ -175,14 +182,15 @@ function renderPlayersInfo(players, attacker, defender) {
     
     const otherPlayers = players.filter(p => p.id !== socket.id);
     
-    // Для 3 игроков: один сверху, один слева
     if (otherPlayers[0]) {
         let roleHtml = '';
+        let winnerClass = '';
         if (otherPlayers[0].username === attacker) roleHtml = '<div class="role-badge attacker">⚔️ АТАКУЕТ</div>';
         if (otherPlayers[0].username === defender) roleHtml = '<div class="role-badge defender">🛡️ ОТБИВАЕТСЯ</div>';
+        if (otherPlayers[0].cardCount === 0) winnerClass = 'player-winner';
         
         playerTop.innerHTML = `
-            <div class="player-name">${otherPlayers[0].username}</div>
+            <div class="player-name ${winnerClass}">${escapeHtml(otherPlayers[0].username)}</div>
             <div class="player-cards">📋 ${otherPlayers[0].cardCount} карт</div>
             ${roleHtml}
         `;
@@ -190,15 +198,23 @@ function renderPlayersInfo(players, attacker, defender) {
     
     if (otherPlayers[1]) {
         let roleHtml = '';
+        let winnerClass = '';
         if (otherPlayers[1].username === attacker) roleHtml = '<div class="role-badge attacker">⚔️ АТАКУЕТ</div>';
         if (otherPlayers[1].username === defender) roleHtml = '<div class="role-badge defender">🛡️ ОТБИВАЕТСЯ</div>';
+        if (otherPlayers[1].cardCount === 0) winnerClass = 'player-winner';
         
         playerLeft.innerHTML = `
-            <div class="player-name">${otherPlayers[1].username}</div>
+            <div class="player-name ${winnerClass}">${escapeHtml(otherPlayers[1].username)}</div>
             <div class="player-cards">📋 ${otherPlayers[1].cardCount} карт</div>
             ${roleHtml}
         `;
     }
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
 }
 
 function createCardImage(card, className, onClickHandler = null, cardIndex = null) {
@@ -332,27 +348,31 @@ function renderTable(table) {
     zone.appendChild(container);
 }
 
-function renderMyHand(hand) {
+function renderMyHand(hand, state) {
     const handEl = document.getElementById('myHand');
     if (!handEl) return;
     
     handEl.innerHTML = '';
     
-    if (!hand || hand.length === 0) {
-        handEl.innerHTML = '<div class="win-message">🎉 ВЫ ПОБЕДИЛИ! 🎉</div>';
+    if (hand.length === 0) {
+        handEl.innerHTML = '<div class="win-message">🏆 ВЫ ПОБЕДИТЕЛЬ! 🏆<br><span style="font-size:14px;">Наблюдайте за игрой</span></div>';
         return;
     }
     
     hand.forEach((card, index) => {
         const onClick = (cardIdx) => {
-            if (isMyAttackTurn) {
+            if (isMyAdditionalAttackTurn) {
+                console.log(`➕ Подкидывание картой ${card.rank} ${card.suit}, индекс ${cardIdx}`);
+                socket.emit('additionalAttack', { cardIndex: cardIdx }, (result) => {
+                    if (result && !result.success) {
+                        alert(result.error || 'Нельзя подкинуть эту карту');
+                    }
+                });
+            } else if (isMyAttackTurn) {
                 console.log(`⚔️ Атака картой ${card.rank} ${card.suit}, индекс ${cardIdx}`);
                 socket.emit('attack', { cardIndex: cardIdx }, (result) => {
                     if (result && !result.success) {
                         alert(result.error || 'Нельзя сходить этой картой');
-                        console.warn('Ошибка атаки:', result.error);
-                    } else {
-                        console.log('Атака успешна');
                     }
                 });
             } else if (isMyDefendTurn) {
@@ -360,9 +380,6 @@ function renderMyHand(hand) {
                 socket.emit('defend', { cardIndex: cardIdx }, (result) => {
                     if (result && !result.success) {
                         alert(result.error || 'Нельзя побить этой картой');
-                        console.warn('Ошибка защиты:', result.error);
-                    } else {
-                        console.log('Защита успешна');
                     }
                 });
             } else {
@@ -373,6 +390,33 @@ function renderMyHand(hand) {
         const cardDiv = createCardImage(card, 'my-card', onClick, index);
         handEl.appendChild(cardDiv);
     });
+}
+
+function createButton(text, color, onClick) {
+    const btn = document.createElement('button');
+    btn.textContent = text;
+    btn.style.cssText = `
+        padding: 10px 20px;
+        background: ${color};
+        color: white;
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 16px;
+        font-weight: bold;
+        z-index: 1001;
+        transition: all 0.3s;
+    `;
+    btn.onmouseover = () => {
+        btn.style.transform = 'translateY(-2px)';
+        btn.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
+    };
+    btn.onmouseout = () => {
+        btn.style.transform = 'translateY(0)';
+        btn.style.boxShadow = 'none';
+    };
+    btn.onclick = onClick;
+    return btn;
 }
 
 function renderActionButtons(state) {
@@ -395,60 +439,65 @@ function renderActionButtons(state) {
     
     buttonsDiv.innerHTML = '';
     
-    if (state.isMyTurnAttack && state.table && state.table.length > 0) {
-        const endBtn = document.createElement('button');
-        endBtn.className = 'action-btn end-btn';
-        endBtn.textContent = '✅ Завершить ход';
-        endBtn.style.cssText = `
-            padding: 10px 20px;
-            background: #ff9800;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: bold;
-        `;
-        endBtn.onclick = () => {
+    const table = state.table || [];
+    const attackCount = table.filter(t => t.type === 'attack').length;
+    const defendCount = table.filter(t => t.type === 'defend').length;
+    const allDefended = attackCount === defendCount && attackCount > 0;
+    const hasUndefended = attackCount > defendCount;
+    
+    console.log('=== renderActionButtons DEBUG ===');
+    console.log('isMyTurnAttack:', state.isMyTurnAttack);
+    console.log('isMyTurnDefend:', state.isMyTurnDefend);
+    console.log('isMyAdditionalAttackTurn:', state.isMyAdditionalAttackTurn);
+    console.log('attackCount:', attackCount, 'defendCount:', defendCount);
+    console.log('allDefended:', allDefended, 'hasUndefended:', hasUndefended);
+    
+    // Кнопка для завершения хода (для обычного атакующего)
+    if (state.isMyTurnAttack && table.length > 0 && allDefended) {
+        const endBtn = createButton('✅ Завершить ход', '#ff9800', () => {
+            console.log('Нажата кнопка завершения хода');
             socket.emit('endTurn', {}, (result) => {
+                console.log('endTurn result:', result);
                 if (result && !result.success) {
                     alert(result.error);
-                } else {
-                    console.log('Ход завершен');
                 }
             });
-        };
+        });
         buttonsDiv.appendChild(endBtn);
+        console.log('✅ Добавлена кнопка "Завершить ход"');
     }
     
-    if (state.isMyTurnDefend && state.table && state.table.length > 0) {
-        const takeBtn = document.createElement('button');
-        takeBtn.className = 'action-btn take-btn';
-        takeBtn.textContent = '📥 Забрать карты';
-        takeBtn.style.cssText = `
-            padding: 10px 20px;
-            background: #f44336;
-            color: white;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: bold;
-        `;
-        takeBtn.onclick = () => {
-            socket.emit('takeCards', {}, (result) => {
+    // Кнопка для завершения дополнительной атаки (для третьего игрока)
+    if (state.isMyAdditionalAttackTurn) {
+        const endAdditionalBtn = createButton('✅ Завершить подкидывание', '#9c27b0', () => {
+            console.log('Нажата кнопка завершения подкидывания');
+            socket.emit('endAdditionalAttack', {}, (result) => {
+                console.log('endAdditionalAttack result:', result);
                 if (result && !result.success) {
                     alert(result.error);
-                } else {
-                    console.log('Карты забраны');
                 }
             });
-        };
+        });
+        buttonsDiv.appendChild(endAdditionalBtn);
+        console.log('✅ Добавлена кнопка "Завершить подкидывание"');
+    }
+    
+    // Кнопка "Забрать карты" (для защитника)
+    if (state.isMyTurnDefend && hasUndefended) {
+        const takeBtn = createButton('📥 Забрать карты', '#f44336', () => {
+            console.log('Нажата кнопка забрать карты');
+            socket.emit('takeCards', {}, (result) => {
+                console.log('takeCards result:', result);
+                if (result && !result.success) {
+                    alert(result.error);
+                }
+            });
+        });
         buttonsDiv.appendChild(takeBtn);
+        console.log('✅ Добавлена кнопка "Забрать карты"');
     }
 }
 
-// Инициализация при загрузке страницы
 document.addEventListener('DOMContentLoaded', () => {
     console.log('DOM загружен, инициализация GameUI');
     initGameUI();

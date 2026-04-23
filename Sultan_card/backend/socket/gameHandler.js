@@ -338,6 +338,30 @@ module.exports = (io) => {
             }
         });
 
+        socket.on('additionalAttack', (data, callback) => {
+            const lobbyId = socket.currentLobby;
+            const game = activeGames.get(lobbyId);
+            if (game) {
+                const result = game.additionalAttack(socket.id, data.cardIndex);
+                if (callback) callback(result);
+                game.broadcast();
+            } else if (callback) {
+                callback({ success: false, error: 'Игра не активна' });
+            }
+        });
+
+        socket.on('endAdditionalAttack', (data, callback) => {
+            const lobbyId = socket.currentLobby;
+            const game = activeGames.get(lobbyId);
+            if (game) {
+                const result = game.endAdditionalAttack(socket.id);
+                if (callback) callback(result);
+                game.broadcast();
+            } else if (callback) {
+                callback({ success: false, error: 'Игра не активна' });
+            }
+        });
+
         // ================== ОТКЛЮЧЕНИЕ ==================
         socket.on('disconnect', () => {
             console.log(`❌ Отключился: ${socket.id}`);

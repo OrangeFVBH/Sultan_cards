@@ -236,3 +236,24 @@ body {
 .action-btn:active {
     transform: translateY(0);
 }
+
+.win-message {
+    color: #ffd700;
+    font-size: 24px;
+    text-align: center;
+    padding: 20px;
+    font-weight: bold;
+    background: rgba(0,0,0,0.7);
+    border-radius: 15px;
+    margin: 20px;
+}
+
+.player-winner {
+    color: #ffd700;
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+}
+
+.player-loser {
+    color: #ff4444;
+    text-decoration: line-through;
+}

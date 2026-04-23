@@ -605,7 +605,10 @@
                         <h3>${escapeHtml(lobby.name)}</h3>
                         <p>👑 ${escapeHtml(lobby.creator)} | 👥 ${lobby.playersCount}/${lobby.maxPlayers}</p>
                     </div>
-                    <button class="join-lobby-btn" onclick="joinLobby('${lobby.lobbyId}')">Присоединиться</button>
+                    ${!currentLobby ? 
+                        `<button class="join-lobby-btn" onclick="joinLobby('${lobby.lobbyId}')">Присоединиться</button>` : 
+                        '<button class="join-lobby-btn" disabled style="opacity:0.5; cursor:not-allowed;">Уже в лобби</button>'
+                    }
                 </div>
             `).join('');
         }
