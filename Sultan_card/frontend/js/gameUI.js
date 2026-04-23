@@ -450,10 +450,10 @@ function renderActionButtons(state) {
     console.log('isMyTurnDefend:', state.isMyTurnDefend);
     console.log('isMyAdditionalAttackTurn:', state.isMyAdditionalAttackTurn);
     console.log('attackCount:', attackCount, 'defendCount:', defendCount);
-    console.log('allDefended:', allDefended, 'hasUndefended:', hasUndefended);
     
-    // Кнопка для завершения хода (для обычного атакующего)
-    if (state.isMyTurnAttack && table.length > 0 && allDefended) {
+    // Кнопка "Завершить ход" - ТОЛЬКО для обычного атакующего (не для дополнительного)
+    // Важно: НЕ показывать эту кнопку, если это дополнительная атака
+    if (state.isMyTurnAttack && !state.isMyAdditionalAttackTurn && table.length > 0 && allDefended) {
         const endBtn = createButton('✅ Завершить ход', '#ff9800', () => {
             console.log('Нажата кнопка завершения хода');
             socket.emit('endTurn', {}, (result) => {
@@ -467,7 +467,7 @@ function renderActionButtons(state) {
         console.log('✅ Добавлена кнопка "Завершить ход"');
     }
     
-    // Кнопка для завершения дополнительной атаки (для третьего игрока)
+    // Кнопка "Завершить подкидывание" - ТОЛЬКО для дополнительного атакующего (третьего игрока)
     if (state.isMyAdditionalAttackTurn) {
         const endAdditionalBtn = createButton('✅ Завершить подкидывание', '#9c27b0', () => {
             console.log('Нажата кнопка завершения подкидывания');
@@ -482,7 +482,7 @@ function renderActionButtons(state) {
         console.log('✅ Добавлена кнопка "Завершить подкидывание"');
     }
     
-    // Кнопка "Забрать карты" (для защитника)
+    // Кнопка "Забрать карты" - только для защитника
     if (state.isMyTurnDefend && hasUndefended) {
         const takeBtn = createButton('📥 Забрать карты', '#f44336', () => {
             console.log('Нажата кнопка забрать карты');
