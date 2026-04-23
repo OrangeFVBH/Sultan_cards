@@ -22,7 +22,7 @@ class Game {
     }
 
     dealCards() {
-        const cardsPerPlayer = 12; // 36 карт / 3 игрока = 12 карт каждому
+        const cardsPerPlayer = 12;
         console.log(`📤 Раздача карт (по ${cardsPerPlayer} карт каждому)`);
         
         this.players.forEach((player, index) => {
@@ -46,7 +46,6 @@ class Game {
                 return;
             }
         }
-        // Если никто не имеет 6♦, выбираем случайного
         this.currentAttackerIndex = 0;
         this.currentDefenderIndex = 1;
         console.log(`🎯 Первый атакующий (случайный): ${this.players[0].username}`);
@@ -125,13 +124,44 @@ class Game {
             this.table = [];
             this.allowedRanks.clear();
         }
+        
+        // Переход хода к следующему защитнику
         this.currentAttackerIndex = this.currentDefenderIndex;
         this.currentDefenderIndex = (this.currentAttackerIndex + 1) % this.players.length;
         this.additionalAttackerIndex = null;
 
-        console.log(`🔄 Ход переходит к ${this.players[this.currentAttackerIndex].username}`);
+        console.log(`🔄 Ход переходит к ${this.players[this.currentAttackerIndex]?.username}`);
+        console.log(`   Защищается: ${this.players[this.currentDefenderIndex]?.username}`);
 
+        // Пропускаем выбывших игроков
+        this.skipEliminatedPlayers();
+
+        // Проверяем, не закончилась ли игра
         this.checkWinCondition();
+    }
+
+    skipEliminatedPlayers() {
+        // Пропускаем атакующего, если у него 0 карт
+        while (this.players[this.currentAttackerIndex] && 
+               this.players[this.currentAttackerIndex].hand.length === 0 && 
+               this.getActivePlayersCount() > 1) {
+            console.log(`⚠️ Игрок ${this.players[this.currentAttackerIndex].username} выбыл (0 карт), пропускаем ход`);
+            this.currentAttackerIndex = (this.currentAttackerIndex + 1) % this.players.length;
+            this.currentDefenderIndex = (this.currentAttackerIndex + 1) % this.players.length;
+        }
+        
+        // Пропускаем защитника, если у него 0 карт
+        while (this.players[this.currentDefenderIndex] && 
+               this.players[this.currentDefenderIndex].hand.length === 0 && 
+               this.getActivePlayersCount() > 1) {
+            console.log(`⚠️ Игрок ${this.players[this.currentDefenderIndex].username} выбыл (0 карт), пропускаем`);
+            this.currentAttackerIndex = this.currentDefenderIndex;
+            this.currentDefenderIndex = (this.currentAttackerIndex + 1) % this.players.length;
+        }
+    }
+
+    getActivePlayersCount() {
+        return this.players.filter(p => p.hand.length > 0).length;
     }
 
     takeCards(playerId) {
@@ -141,14 +171,18 @@ class Game {
         const takenCards = [...this.table.map(t => t.card)];
         defender.hand.push(...takenCards);
         
-        console.log(`📥 ${defender.username} забирает ${takenCards.length} карт`);
+        console.log(`📥 ${defender.username} забирает ${takenCards.length} карт, теперь у него ${defender.hand.length} карт`);
         
         this.table = [];
         this.allowedRanks.clear();
         this.additionalAttackerIndex = null;
 
+        // Переход хода к следующему атакующему
         this.currentAttackerIndex = (this.currentDefenderIndex + 1) % this.players.length;
         this.currentDefenderIndex = (this.currentAttackerIndex + 1) % this.players.length;
+        
+        // Пропускаем выбывших игроков
+        this.skipEliminatedPlayers();
 
         this.checkWinCondition();
         return { success: true };
@@ -164,9 +198,17 @@ class Game {
             const idleIndex = [0, 1, 2].find(i => 
                 i !== this.currentAttackerIndex && i !== this.currentDefenderIndex
             );
-            this.additionalAttackerIndex = idleIndex;
-            this.currentAttackerIndex = idleIndex;
-            console.log(`🔄 Дополнительный ход для ${this.players[idleIndex].username}`);
+            
+            // Проверяем, есть ли у третьего игрока карты
+            if (idleIndex !== undefined && this.players[idleIndex] && this.players[idleIndex].hand.length > 0) {
+                this.additionalAttackerIndex = idleIndex;
+                this.currentAttackerIndex = idleIndex;
+                console.log(`🔄 Дополнительный ход для ${this.players[idleIndex].username}`);
+            } else {
+                // Если у третьего игрока нет карт, сразу завершаем бой
+                console.log(`⚠️ У дополнительного игрока нет карт, завершаем бой`);
+                this.endBout(true);
+            }
             return { success: true };
         } else {
             // Дополнительный атакующий закончил → бой полностью заканчивается
@@ -177,14 +219,40 @@ class Game {
     }
 
     checkWinCondition() {
-        const active = this.players.filter(p => p.hand.length > 0);
-        if (active.length === 1) {
-            const winner = active[0];
+        // Находим игроков с картами
+        const playersWithCards = this.players.filter(p => p.hand.length > 0);
+        
+        console.log(`📊 Статус игроков:`);
+        this.players.forEach(p => {
+            console.log(`   ${p.username}: ${p.hand.length} карт`);
+        });
+        
+        // Если остался только 1 игрок с картами - он победитель
+        if (playersWithCards.length === 1) {
+            const winner = playersWithCards[0];
             console.log(`🏆 ИГРА ОКОНЧЕНА! Победитель: ${winner.username}`);
+            
+            // Отправляем gameOver всем
             this.players.forEach(p => {
-                p.socket.emit('gameOver', { winner: winner.username });
+                if (p.socket && p.socket.connected) {
+                    p.socket.emit('gameOver', { winner: winner.username });
+                }
             });
+            return true;
         }
+        
+        // Если ни у кого нет карт (все выбыли одновременно) - ничья
+        if (playersWithCards.length === 0) {
+            console.log(`🤝 НИЧЬЯ! Все игроки выбыли одновременно`);
+            this.players.forEach(p => {
+                if (p.socket && p.socket.connected) {
+                    p.socket.emit('gameOver', { winner: 'Ничья' });
+                }
+            });
+            return true;
+        }
+        
+        return false;
     }
 
     getStateForPlayer(playerId) {
@@ -204,14 +272,14 @@ class Game {
             isMyTurnAttack: myIndex === this.currentAttackerIndex,
             isMyTurnDefend: myIndex === this.currentDefenderIndex,
             trumpSuit: this.trumpSuit,
-            gameWinner: this.checkWinner()
+            gameWinner: this.getWinner()
         };
     }
     
-    checkWinner() {
-        const active = this.players.filter(p => p.hand.length > 0);
-        if (active.length === 1) {
-            return active[0].username;
+    getWinner() {
+        const playersWithCards = this.players.filter(p => p.hand.length > 0);
+        if (playersWithCards.length === 1) {
+            return playersWithCards[0].username;
         }
         return null;
     }
@@ -219,56 +287,12 @@ class Game {
     broadcast() {
         console.log('📡 Рассылка состояния игры...');
         this.players.forEach(p => {
-            const state = this.getStateForPlayer(p.id);
-            p.socket.emit('gameState', state);
-            console.log(`  → ${p.username}: ${state.myHand.length} карт, атакует: ${state.isMyTurnAttack}, защищается: ${state.isMyTurnDefend}`);
-        });
-    }
-    async updateGameStats() {
-        const active = this.players.filter(p => p.hand.length > 0);
-        if (active.length === 1) {
-            const winner = active[0];
-            const losers = this.players.filter(p => p.hand.length === 0);
-            
-            // Обновляем статистику победителя
-            try {
-                const fetch = require('node-fetch');
-                await fetch('http://localhost:3000/api/auth/update-stats', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username: winner.username, won: true })
-                });
-                
-                // Обновляем статистику проигравших
-                for (const loser of losers) {
-                    await fetch('http://localhost:3000/api/auth/update-stats', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ username: loser.username, won: false })
-                    });
-                }
-                
-                console.log(`📊 Статистика обновлена в MongoDB: победитель ${winner.username}`);
-            } catch (error) {
-                console.error('Ошибка обновления статистики:', error);
+            if (p.socket && p.socket.connected) {
+                const state = this.getStateForPlayer(p.id);
+                p.socket.emit('gameState', state);
+                console.log(`  → ${p.username}: ${state.myHand.length} карт, атакует: ${state.isMyTurnAttack}, защищается: ${state.isMyTurnDefend}`);
             }
-        }
-    }
-
-    // В checkWinCondition замените на:
-    checkWinCondition() {
-        const active = this.players.filter(p => p.hand.length > 0);
-        if (active.length === 1) {
-            const winner = active[0];
-            console.log(`🏆 ИГРА ОКОНЧЕНА! Победитель: ${winner.username}`);
-            
-            // Обновляем статистику в MongoDB
-            this.updateGameStats();
-            
-            this.players.forEach(p => {
-                p.socket.emit('gameOver', { winner: winner.username });
-            });
-        }
+        });
     }
 }
 

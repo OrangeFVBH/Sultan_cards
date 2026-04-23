@@ -14,38 +14,37 @@
         body {
             background: linear-gradient(135deg, #0a2f23 0%, #041f19 100%);
             min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
             font-family: 'Segoe UI', Arial, sans-serif;
             padding: 20px;
         }
         
-        .lobby-box {
-            background: rgba(5, 40, 31, 0.95);
-            padding: 40px;
-            border-radius: 20px;
-            text-align: center;
-            box-shadow: 0 0 50px rgba(0, 255, 150, 0.4);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(0, 255, 150, 0.3);
-            min-width: 400px;
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
         }
         
-        h1 {
-            color: #00ff96;
-            margin-bottom: 10px;
-            font-size: 32px;
-        }
-        
-        .user-info {
-            background: rgba(0, 255, 150, 0.1);
-            padding: 15px;
-            border-radius: 10px;
-            margin-bottom: 20px;
+        /* Header */
+        .header {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(5, 40, 31, 0.95);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 255, 150, 0.3);
+        }
+        
+        .logo h1 {
+            color: #00ff96;
+            font-size: 28px;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 20px;
         }
         
         .username {
@@ -63,8 +62,8 @@
             background: rgba(255, 68, 68, 0.2);
             color: #ff4444;
             border: 1px solid #ff4444;
-            padding: 5px 15px;
-            border-radius: 5px;
+            padding: 8px 20px;
+            border-radius: 8px;
             cursor: pointer;
             transition: all 0.3s;
         }
@@ -74,45 +73,226 @@
             color: white;
         }
         
-        .players-list {
-            margin: 30px 0;
-            padding: 20px;
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 10px;
+        /* Main content */
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 400px;
+            gap: 20px;
         }
         
-        .players-list h3 {
+        /* Lobbies list */
+        .lobbies-section {
+            background: rgba(5, 40, 31, 0.95);
+            border-radius: 15px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 255, 150, 0.3);
+        }
+        
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .section-header h2 {
             color: #00ff96;
-            margin-bottom: 15px;
+            font-size: 24px;
+        }
+        
+        .create-lobby-btn {
+            background: linear-gradient(135deg, #00ff96 0%, #00cc7a 100%);
+            color: #05281f;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        
+        .create-lobby-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 255, 150, 0.3);
+        }
+        
+        .lobbies-list {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        
+        .lobby-item {
+            background: rgba(0, 255, 150, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s;
+        }
+        
+        .lobby-item:hover {
+            background: rgba(0, 255, 150, 0.2);
+        }
+        
+        .lobby-info h3 {
+            color: #00ff96;
+            margin-bottom: 5px;
+        }
+        
+        .lobby-info p {
+            color: #ccc;
+            font-size: 12px;
+        }
+        
+        .join-lobby-btn {
+            background: #4caf50;
+            color: white;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .join-lobby-btn:hover {
+            background: #45a049;
+            transform: scale(1.05);
+        }
+        
+        .empty-lobbies {
+            text-align: center;
+            color: #888;
+            padding: 40px;
+        }
+        
+        /* Current lobby */
+        .current-lobby-section {
+            background: rgba(5, 40, 31, 0.95);
+            border-radius: 15px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 255, 150, 0.3);
+        }
+        
+        .current-lobby-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(0, 255, 150, 0.3);
+        }
+        
+        .current-lobby-header h2 {
+            color: #00ff96;
+            font-size: 20px;
+        }
+        
+        .lobby-code {
+            background: rgba(0, 255, 150, 0.2);
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            color: #00ff96;
+        }
+        
+        .players-list {
+            margin: 20px 0;
         }
         
         .player-item {
-            padding: 10px;
-            margin: 5px 0;
             background: rgba(0, 255, 150, 0.1);
-            border-radius: 5px;
-            color: white;
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 8px;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
         
-        .player-status {
+        .player-name {
+            color: white;
+            font-size: 16px;
+        }
+        
+        .player-role {
             font-size: 12px;
-            color: #00ff96;
+            color: #ffd700;
+        }
+        
+        .kick-btn {
+            background: rgba(255, 68, 68, 0.2);
+            color: #ff4444;
+            border: 1px solid #ff4444;
+            padding: 5px 12px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .kick-btn:hover {
+            background: #ff4444;
+            color: white;
+        }
+        
+        .lobby-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .start-game-btn {
+            flex: 1;
+            background: linear-gradient(135deg, #ff9800 0%, #ff6600 100%);
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        
+        .start-game-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(255, 152, 0, 0.3);
+        }
+        
+        .start-game-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .leave-lobby-btn {
+            flex: 1;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .leave-lobby-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
         }
         
         .waiting-text {
+            text-align: center;
             color: #ffd700;
             margin: 20px 0;
-            font-size: 16px;
-            font-weight: bold;
+            font-size: 14px;
         }
         
         .status {
-            margin: 20px 0;
+            margin-top: 15px;
             padding: 10px;
-            border-radius: 5px;
+            border-radius: 8px;
+            text-align: center;
             font-size: 14px;
         }
         
@@ -131,31 +311,100 @@
             color: #ff4444;
         }
         
-        button {
+        .no-lobby {
+            text-align: center;
+            color: #888;
+            padding: 40px;
+        }
+        
+        .leaderboard-btn {
+            margin-top: 20px;
             width: 100%;
-            padding: 16px;
-            margin: 10px 0;
-            background: linear-gradient(135deg, #00ff96 0%, #00cc7a 100%);
+            background: linear-gradient(135deg, #ffd700 0%, #ff9800 100%);
             color: #05281f;
             border: none;
-            border-radius: 10px;
-            font-size: 18px;
-            font-weight: bold;
+            padding: 12px;
+            border-radius: 8px;
             cursor: pointer;
+            font-weight: bold;
             transition: all 0.3s;
         }
         
-        button:hover:not(:disabled) {
+        .leaderboard-btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(0, 255, 150, 0.3);
+            box-shadow: 0 5px 15px rgba(255, 215, 0, 0.3);
         }
         
-        button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
+        /* Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 2000;
+            align-items: center;
+            justify-content: center;
         }
         
-        .back-btn {
+        .modal.active {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: #0a2f23;
+            padding: 30px;
+            border-radius: 15px;
+            min-width: 400px;
+            border: 1px solid rgba(0, 255, 150, 0.3);
+        }
+        
+        .modal-content h3 {
+            color: #00ff96;
+            margin-bottom: 20px;
+        }
+        
+        .modal-content input {
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            background: #0f4a38;
+            border: 1px solid #00ff96;
+            border-radius: 8px;
+            color: white;
+        }
+        
+        .modal-content label {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 15px 0;
+            color: white;
+        }
+        
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        
+        .modal-buttons button {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        .confirm-btn {
+            background: #00ff96;
+            color: #05281f;
+        }
+        
+        .cancel-btn {
             background: rgba(255, 255, 255, 0.1);
             color: white;
         }
@@ -168,51 +417,107 @@
         .loading {
             animation: pulse 1s infinite;
         }
-
-        .leaderboard-btn {
-            background: linear-gradient(135deg, #ffd700 0%, #ff9800 100%);
-            color: #05281f;
+        
+        ::-webkit-scrollbar {
+            width: 8px;
         }
-
-        .leaderboard-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(255, 215, 0, 0.3);
+        
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 255, 150, 0.1);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #00ff96;
+            border-radius: 4px;
         }
     </style>
 </head>
 <body>
-    <div class="lobby-box">
-        <h1>🎮 ИГРОВОЕ ЛОББИ</h1>
-        
-        <div class="user-info">
-            <div>
-                <div class="username" id="username">Загрузка...</div>
-                <div class="stats" id="stats">Побед: 0 | Поражений: 0</div>
+    <div class="container">
+        <div class="header">
+            <div class="logo">
+                <h1>🎴 ДУРАК 36 карт</h1>
             </div>
-            <button class="logout-btn" onclick="logout()">Выйти</button>
-        </div>
-        
-        <div class="players-list">
-            <h3>Игроки в лобби (<span id="playerCount">0</span>/3)</h3>
-            <div id="playersList">
-                <div class="player-item">Ожидание игроков...</div>
+            <div class="user-info">
+                <div>
+                    <div class="username" id="username">Загрузка...</div>
+                    <div class="stats" id="stats"></div>
+                </div>
+                <button class="logout-btn" onclick="logout()">Выйти</button>
             </div>
         </div>
         
-        <div id="status" class="status waiting">🔄 Подключение к серверу...</div>
-        <div class="waiting-text" id="waitingText">Ожидание других игроков (нужно 3 человека)</div>
-        
-        <button id="backToLobbyBtn" style="display:none;" onclick="rejoinLobby()">🔄 Вернуться в лобби</button>
-        <button class="back-btn" onclick="goBack()">← Назад</button>
-        <button class="leaderboard-btn" onclick="showLeaderboard()">🏆 Таблица лидеров</button>
+        <div class="main-content">
+            <!-- Список лобби -->
+            <div class="lobbies-section">
+                <div class="section-header">
+                    <h2>🏠 Публичные лобби</h2>
+                    <button class="create-lobby-btn" onclick="showCreateLobbyModal()">+ Создать лобби</button>
+                </div>
+                <div class="lobbies-list" id="lobbiesList">
+                    <div class="empty-lobbies">Загрузка лобби...</div>
+                </div>
+                <button class="leaderboard-btn" onclick="showLeaderboard()">🏆 Таблица лидеров</button>
+            </div>
+            
+            <!-- Текущее лобби -->
+            <div class="current-lobby-section" id="currentLobbySection">
+                <div class="current-lobby-header">
+                    <h2>🎮 Ваше лобби</h2>
+                    <div class="lobby-code" id="lobbyCode">—</div>
+                </div>
+                <div id="currentLobbyContent">
+                    <div class="no-lobby">
+                        Вы не в лобби<br>
+                        Создайте или присоединитесь к игре
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Модальное окно создания лобби -->
+    <div class="modal" id="createLobbyModal">
+        <div class="modal-content">
+            <h3>Создание лобби</h3>
+            <input type="text" id="lobbyName" placeholder="Название лобби (опционально)" maxlength="30">
+            <label>
+                <input type="checkbox" id="isPrivateCheckbox"> Приватное лобби
+            </label>
+            <input type="password" id="lobbyPassword" placeholder="Пароль (для приватного)" style="display: none;">
+            <div class="modal-buttons">
+                <button class="confirm-btn" onclick="createLobby()">Создать</button>
+                <button class="cancel-btn" onclick="closeCreateLobbyModal()">Отмена</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Модальное окно входа в приватное лобби -->
+    <div class="modal" id="joinPrivateModal">
+        <div class="modal-content">
+            <h3>Вход в приватное лобби</h3>
+            <input type="password" id="privateLobbyPassword" placeholder="Введите пароль">
+            <div class="modal-buttons">
+                <button class="confirm-btn" onclick="joinPrivateLobby()">Войти</button>
+                <button class="cancel-btn" onclick="closeJoinPrivateModal()">Отмена</button>
+            </div>
+        </div>
     </div>
     
     <script src="/socket.io/socket.io.js"></script>
     <script>
         let socket = null;
         let currentUser = null;
-        let players = [];
-        let gameStarted = false;
+        let currentLobby = null;
+        let pendingLobbyId = null;
+        
+        // Инициализация
+        async function init() {
+            await loadUserData();
+            connectSocket();
+            setInterval(refreshLobbies, 5000);
+        }
         
         async function loadUserData() {
             try {
@@ -227,9 +532,6 @@
                 currentUser = data.username;
                 document.getElementById('username').textContent = currentUser;
                 document.getElementById('stats').textContent = `🏆 Побед: ${data.stats.wins} | 💔 Поражений: ${data.stats.losses}`;
-                
-                // Подключаемся к сокету
-                connectSocket();
             } catch (error) {
                 console.error('Ошибка загрузки данных:', error);
                 window.location.href = '/';
@@ -237,104 +539,287 @@
         }
         
         function connectSocket() {
-            if (socket && socket.connected) {
-                console.log('Сокет уже подключен');
-                return;
-            }
-            
-            socket = io({
-                reconnection: true,
-                reconnectionAttempts: 5,
-                reconnectionDelay: 1000
-            });
+            socket = io();
             
             socket.on('connect', () => {
-                console.log('✅ Подключен к серверу, id:', socket.id);
-                updateStatus('Подключено к серверу', 'ready');
-                // Присоединяемся к лобби
-                socket.emit('joinLobby', currentUser);
+                console.log('✅ Подключен к серверу');
             });
             
-            socket.on('lobbyUpdate', (playersData) => {
-                console.log('📋 Обновление лобби:', playersData);
-                players = playersData;
-                updatePlayersList(playersData);
-                document.getElementById('playerCount').textContent = playersData.length;
-                
-                if (playersData.length === 3) {
-                    updateStatus('Все игроки собраны! Игра начинается...', 'ready');
-                    document.getElementById('waitingText').innerHTML = '🎲 Игра начинается...';
-                } else {
-                    document.getElementById('waitingText').innerHTML = `Ожидание других игроков (нужно 3 человека, сейчас ${playersData.length})`;
-                }
+            socket.on('lobbiesList', (lobbies) => {
+                renderLobbiesList(lobbies);
             });
             
-            socket.on('gameStarted', () => {
-                if (gameStarted) return;
-                gameStarted = true;
-                console.log('🎮 Получен сигнал gameStarted!');
-                updateStatus('Игра начинается! Перенаправление...', 'ready');
-                
+            socket.on('lobbyUpdate', (lobby) => {
+                console.log('Обновление лобби:', lobby);
+                currentLobby = lobby;
+                renderCurrentLobby(lobby);
+            });
+            
+            socket.on('gameStarted', (data) => {
+                console.log('Игра начинается!', data);
+                sessionStorage.setItem('playerName', currentUser);
+                sessionStorage.setItem('currentLobbyId', data.lobbyId);
                 setTimeout(() => {
-                    window.location.href = '/game.html';
+                    window.location.href = `/game.html?lobbyId=${data.lobbyId}`;
                 }, 500);
             });
             
+            socket.on('kickedFromLobby', (data) => {
+                alert(data.message);
+                currentLobby = null;
+                renderCurrentLobby(null);
+                refreshLobbies();
+            });
+            
+            socket.on('redirectToLobbyList', () => {
+                currentLobby = null;
+                renderCurrentLobby(null);
+                refreshLobbies();
+            });
+            
             socket.on('error', (error) => {
-                console.error('Ошибка от сервера:', error);
-                updateStatus('Ошибка: ' + error, 'error');
+                console.error('Ошибка:', error);
+                alert(error);
             });
-            
+
             socket.on('connect_error', (error) => {
-                console.error('Ошибка подключения:', error);
-                updateStatus('Ошибка подключения к серверу. Переподключение...', 'error');
+                console.error('Connection error:', error);
+                const statusDiv = document.getElementById('status');
+                if (statusDiv) statusDiv.innerHTML = '❌ Ошибка подключения к серверу';
             });
             
-            socket.on('disconnect', () => {
-                console.log('❌ Отключено от сервера');
-                updateStatus('Отключено от сервера. Переподключение...', 'error');
-            });
+            refreshLobbies();
         }
         
-        function updatePlayersList(playersList) {
-            const container = document.getElementById('playersList');
+        function renderLobbiesList(lobbies) {
+            const container = document.getElementById('lobbiesList');
             
-            if (!playersList || playersList.length === 0) {
-                container.innerHTML = '<div class="player-item">Ожидание игроков...</div>';
+            if (!lobbies || lobbies.length === 0) {
+                container.innerHTML = '<div class="empty-lobbies">Нет доступных лобби<br>Создайте свое!</div>';
                 return;
             }
             
-            container.innerHTML = playersList.map(player => `
-                <div class="player-item">
-                    <span>${player.username}</span>
-                    <span class="player-status">${player.username === currentUser ? '👤 Вы' : '🎴'}</span>
+            container.innerHTML = lobbies.map(lobby => `
+                <div class="lobby-item">
+                    <div class="lobby-info">
+                        <h3>${escapeHtml(lobby.name)}</h3>
+                        <p>👑 ${escapeHtml(lobby.creator)} | 👥 ${lobby.playersCount}/${lobby.maxPlayers}</p>
+                    </div>
+                    <button class="join-lobby-btn" onclick="joinLobby('${lobby.lobbyId}')">Присоединиться</button>
                 </div>
             `).join('');
         }
         
-        function updateStatus(message, type) {
-            const statusDiv = document.getElementById('status');
-            statusDiv.textContent = message;
-            statusDiv.className = `status ${type}`;
-            console.log(`Статус: ${type} - ${message}`);
+        function renderCurrentLobby(lobby) {
+            const container = document.getElementById('currentLobbyContent');
+            
+            if (!lobby) {
+                container.innerHTML = `
+                    <div class="no-lobby">
+                        Вы не в лобби<br>
+                        Создайте или присоединитесь к игре
+                    </div>
+                `;
+                document.getElementById('lobbyCode').textContent = '—';
+                return;
+            }
+            
+            document.getElementById('lobbyCode').textContent = lobby.lobbyId;
+            
+            const isCreator = lobby.creator === currentUser;
+            const canStart = lobby.playersCount === 3 && isCreator;
+            
+            container.innerHTML = `
+                <div class="players-list">
+                    <h3 style="color: #00ff96; margin-bottom: 10px;">Игроки (${lobby.playersCount}/${lobby.maxPlayers})</h3>
+                    ${lobby.players.map(player => `
+                        <div class="player-item">
+                            <div>
+                                <span class="player-name">${escapeHtml(player.username)}</span>
+                                ${player.username === lobby.creator ? '<span class="player-role"> (Создатель)</span>' : ''}
+                            </div>
+                            ${isCreator && player.username !== currentUser ? 
+                                `<button class="kick-btn" onclick="kickPlayer('${escapeHtml(player.username)}')">Кикнуть</button>` : 
+                                ''
+                            }
+                        </div>
+                    `).join('')}
+                </div>
+                
+                ${lobby.playersCount < 3 ? 
+                    `<div class="waiting-text">⏳ Ожидание игроков (нужно 3 человека, сейчас ${lobby.playersCount})</div>` : 
+                    '<div class="waiting-text">✅ Все игроки собраны! Можно начинать!</div>'
+                }
+                
+                <div class="lobby-actions">
+                    ${isCreator ? 
+                        `<button class="start-game-btn" onclick="startGame()" ${!canStart ? 'disabled' : ''}>
+                            ${canStart ? '🎮 Начать игру' : '⏳ Ожидание игроков...'}
+                        </button>` : 
+                        ''
+                    }
+                    <button class="leave-lobby-btn" onclick="leaveLobby()">🚪 Покинуть лобби</button>
+                </div>
+            `;
         }
         
-        function rejoinLobby() {
-            gameStarted = false;
-            updateStatus('Переподключение...', 'waiting');
-            if (socket) {
-                socket.disconnect();
-                socket = null;
+        function refreshLobbies() {
+            if (socket && socket.connected) {
+                socket.emit('getLobbies');
             }
-            setTimeout(() => {
-                connectSocket();
-            }, 500);
+        }
+        
+        function showCreateLobbyModal() {
+            document.getElementById('createLobbyModal').classList.add('active');
+        }
+        
+        function closeCreateLobbyModal() {
+            document.getElementById('createLobbyModal').classList.remove('active');
+            document.getElementById('lobbyName').value = '';
+            document.getElementById('isPrivateCheckbox').checked = false;
+            document.getElementById('lobbyPassword').style.display = 'none';
+            document.getElementById('lobbyPassword').value = '';
+        }
+        
+        function createLobby() {
+            const lobbyName = document.getElementById('lobbyName').value.trim();
+            const isPrivate = document.getElementById('isPrivateCheckbox').checked;
+            const password = document.getElementById('lobbyPassword').value;
+            
+            if (isPrivate && (!password || password.length < 3)) {
+                alert('Для приватного лобби введите пароль (минимум 3 символа)');
+                return;
+            }
+            
+            socket.emit('createLobby', {
+                username: currentUser,
+                isPrivate: isPrivate,
+                password: isPrivate ? password : null,
+                lobbyName: lobbyName || null
+            }, (response) => {
+                if (response.success) {
+                    // ФИКС: Сразу сохраняем данные и отрисовываем
+                    currentLobby = response.lobby;
+                    renderCurrentLobby(currentLobby);
+                    closeCreateLobbyModal();
+                } else {
+                    alert('Ошибка создания лобби: ' + response.error);
+                }
+            });
+        }
+        
+        function joinLobby(lobbyId) {
+            if (currentLobby) {
+                alert('Вы уже в лобби. Покиньте текущее лобби перед присоединением к новому.');
+                return;
+            }
+            
+            pendingLobbyId = lobbyId;
+            socket.emit('joinLobby', {
+                lobbyId: lobbyId,
+                username: currentUser,
+                password: null
+            }, (response) => {
+                if (response.success) {
+                    // ФИКС: Сразу обновляем состояние, не дожидаясь lobbyUpdate
+                    currentLobby = response.lobby;
+                    renderCurrentLobby(currentLobby);
+                } else {
+                    if (response.error === 'Неверный пароль') {
+                        showJoinPrivateModal();
+                    } else {
+                        alert('Ошибка: ' + response.error);
+                    }
+                }
+            });
+        }
+        
+        function showJoinPrivateModal() {
+            document.getElementById('joinPrivateModal').classList.add('active');
+        }
+        
+        function closeJoinPrivateModal() {
+            document.getElementById('joinPrivateModal').classList.remove('active');
+            document.getElementById('privateLobbyPassword').value = '';
+            pendingLobbyId = null;
+        }
+        
+        function joinPrivateLobby() {
+            const password = document.getElementById('privateLobbyPassword').value;
+            
+            if (!password) {
+                alert('Введите пароль');
+                return;
+            }
+            
+            socket.emit('joinLobby', {
+                lobbyId: pendingLobbyId,
+                username: currentUser,
+                password: password
+            }, (response) => {
+                closeJoinPrivateModal();
+                if (!response.success) {
+                    alert('Ошибка: ' + response.error);
+                }
+            });
+        }
+        
+        function kickPlayer(username) {
+            if (confirm(`Вы уверены, что хотите кикнуть игрока ${username}?`)) {
+                socket.emit('kickPlayer', {
+                    lobbyId: currentLobby?.lobbyId,
+                    usernameToKick: username
+                }, (response) => {
+                    if (!response.success) {
+                        alert('Ошибка: ' + response.error);
+                    }
+                });
+            }
+        }
+        
+        function leaveLobby() {
+            if (confirm('Покинуть лобби?')) {
+                socket.emit('leaveLobby', {}, (response) => {
+                    if (response && !response.success) {
+                        alert('Ошибка: ' + response.error);
+                    }
+                });
+            }
+        }
+        
+        function startGame() {
+            if (!currentLobby) {
+                alert('Вы не в лобби');
+                return;
+            }
+            
+            if (currentLobby.playersCount !== 3) {
+                alert(`Нужно 3 игрока (сейчас ${currentLobby.playersCount})`);
+                return;
+            }
+            
+            if (currentLobby.creator !== currentUser) {
+                alert('Только создатель может начать игру');
+                return;
+            }
+            
+            console.log('Запуск игры...', currentLobby);
+            
+            socket.emit('startGame', {}, (response) => {
+                console.log('Ответ на startGame:', response);
+                if (!response.success) {
+                    alert('Ошибка: ' + response.error);
+                }
+            });
+        }
+        
+        function showLeaderboard() {
+            window.location.href = '/leaderboard.html';
         }
         
         async function logout() {
             try {
                 await fetch('/api/auth/logout', { method: 'POST' });
-                sessionStorage.removeItem('playerName');
                 if (socket) socket.disconnect();
                 window.location.href = '/';
             } catch (error) {
@@ -343,22 +828,18 @@
             }
         }
         
-        function goBack() {
-            window.location.href = '/';
-        }
-
-        function showLeaderboard() {
-            window.location.href = '/leaderboard.html';
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
         
-        // Проверяем, не перенаправлены ли мы с игры обратно
-        if (sessionStorage.getItem('gameInterrupted') === 'true') {
-            sessionStorage.removeItem('gameInterrupted');
-            document.getElementById('backToLobbyBtn').style.display = 'block';
-        }
+        document.getElementById('isPrivateCheckbox').addEventListener('change', (e) => {
+            const passwordInput = document.getElementById('lobbyPassword');
+            passwordInput.style.display = e.target.checked ? 'block' : 'none';
+        });
         
-        // Загружаем данные пользователя при загрузке страницы
-        loadUserData();
+        init();
     </script>
 </body>
 </html>

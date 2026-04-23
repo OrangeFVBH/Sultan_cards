@@ -39,6 +39,10 @@ app.use(session({
 const authRoutes = require('./routes/auth');
 app.use('/api/auth', authRoutes);
 
+app.get('/lobby', (req, res) => {
+    res.sendFile(path.join(__dirname, '../frontend/lobby.html'));
+});
+
 // Подключаем обработчик игры
 require('./socket/gameHandler')(io);
 

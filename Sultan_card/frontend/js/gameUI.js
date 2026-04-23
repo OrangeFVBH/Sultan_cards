@@ -13,6 +13,11 @@ function initGameUI() {
     playerName = sessionStorage.getItem('playerName');
     console.log('Player name from session:', playerName);
     
+    // Получаем lobbyId из URL или сессии
+    const urlParams = new URLSearchParams(window.location.search);
+    const lobbyId = urlParams.get('lobbyId') || sessionStorage.getItem('currentLobbyId');
+    console.log('LobbyId:', lobbyId);
+    
     if (!playerName) {
         console.error('Нет имени игрока!');
         alert('Ошибка: не удалось определить игрока. Перенаправление в лобби...');
@@ -35,14 +40,33 @@ function initGameUI() {
         
         socket.on('connect', () => {
             console.log('✅ Socket connected in gameUI, id:', socket.id);
+            
+            // Получаем lobbyId из URL или сессии
+            const urlParams = new URLSearchParams(window.location.search);
+            const lobbyIdFromUrl = urlParams.get('lobbyId') || sessionStorage.getItem('currentLobbyId');
+            
+            console.log('Устанавливаем lobbyId в сокет:', lobbyIdFromUrl);
+            
+            if (lobbyIdFromUrl) {
+                socket.currentLobby = lobbyIdFromUrl;
+                socket.currentUsername = playerName;
+                sessionStorage.setItem('currentLobbyId', lobbyIdFromUrl);
+            } else {
+                console.error('❌ Нет lobbyId!');
+                alert('Ошибка: не удалось определить лобби. Перенаправление...');
+                window.location.href = '/lobby.html';
+                return;
+            }
+            
             gameReady = true;
             stateRequestCount = 0;
             
-            // Запрашиваем состояние игры несколько раз с интервалом
+            // Запрашиваем состояние игры несколько раз
             const requestState = () => {
                 if (socket && socket.connected) {
                     console.log(`🔄 Запрос состояния игры (попытка ${stateRequestCount + 1}) для`, playerName);
-                    socket.emit('requestGameState', playerName);
+                    console.log(`Текущий socket.currentLobby:`, socket.currentLobby);
+                    socket.emit('requestGameState', { username: playerName, lobbyId: socket.currentLobby });
                     stateRequestCount++;
                     
                     if (stateRequestCount < 5) {
