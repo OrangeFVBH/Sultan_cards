@@ -1,8 +1,17 @@
+Вот улучшенная версия CSS в стиле «лакшери казино» с благородной зелено-красной гаммой, золотыми обводками, мягкими тенями и без неона.
+```css
 :root {
-    --gold: #1d1d1d;
-    --green-bright: #00ff96;
-    --bg-dark: #041f19;
-    --card-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    --gold: #c9a03d;
+    --gold-light: #e8c468;
+    --gold-dark: #8b6914;
+    --green-rich: #0a2e1f;
+    --green-table: #0f3d2a;
+    --red-rich: #8b1a1a;
+    --red-bright: #c42c2c;
+    --cream: #f5ecd9;
+    --bg-dark: #0a1c14;
+    --card-shadow: 0 8px 20px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(201, 160, 61, 0.2);
+    --gold-glow: 0 2px 8px rgba(201, 160, 61, 0.3);
 }
 
 * {
@@ -14,63 +23,90 @@ body {
     margin: 0;
     padding: 0;
     height: 100vh;
-    background: var(--bg-dark);
-    font-family: 'Roboto', sans-serif;
-    color: white;
+    background: linear-gradient(135deg, #0a1c14 0%, #05120b 100%);
+    font-family: 'Playfair Display', 'Roboto', serif;
+    color: var(--cream);
     overflow: hidden;
+    letter-spacing: 0.3px;
 }
 
-/* Кнопка выхода */
+/* Luxury exit button */
 .minimal-exit {
     position: fixed;
-    top: 15px;
-    right: 15px;
+    top: 20px;
+    right: 20px;
     z-index: 1000;
-    background: rgba(255,255,255,0.1);
-    border: 1px solid rgba(255,255,255,0.2);
-    color: white;
-    width: 35px;
-    height: 35px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--gold);
+    color: var(--gold);
+    width: 38px;
+    height: 38px;
     border-radius: 50%;
     cursor: pointer;
     font-size: 18px;
-    transition: 0.3s;
+    transition: all 0.3s ease;
+    backdrop-filter: blur(4px);
+    font-family: serif;
 }
 
 .minimal-exit:hover {
-    background: #ff4444;
-    border-color: #ff4444;
+    background: var(--red-rich);
+    border-color: var(--gold-light);
+    color: white;
+    transform: scale(1.05);
+    box-shadow: 0 0 12px rgba(201, 160, 61, 0.4);
 }
 
-/* Контейнер игры */
+/* Game container - luxury casino table */
 #gameContainer {
     width: 100vw;
     height: 100vh;
     display: flex;
     flex-direction: column;
-    background: radial-gradient(circle, #0b3d2e 0%, #041f19 100%);
+    background: radial-gradient(ellipse at center, #1a4a2a 0%, #0a2e1f 70%, #04180f 100%);
+    position: relative;
+}
+
+/* Felt texture overlay */
+#gameContainer::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: radial-gradient(circle at 25% 40%, rgba(201, 160, 61, 0.03) 2%, transparent 2.5%);
+    background-size: 35px 35px;
+    pointer-events: none;
 }
 
 .game-board {
     position: relative;
     flex-grow: 1;
     display: grid;
-    grid-template-columns: 100px 1fr 100px;
-    grid-template-rows: 80px 1fr 160px;
-    padding: 10px;
+    grid-template-columns: 110px 1fr 110px;
+    grid-template-rows: 90px 1fr 170px;
+    padding: 12px;
+    gap: 5px;
 }
 
-/* Компактные плашки игроков */
+/* Player badges - luxury style */
 .player-badge {
-    background: rgba(0,0,0,0.6);
-    border: 1px solid var(--green-bright);
-    padding: 5px 12px;
-    border-radius: 20px;
+    background: linear-gradient(135deg, rgba(0, 0, 0, 0.7) 0%, rgba(30, 20, 10, 0.8) 100%);
+    border: 1px solid var(--gold);
+    border-radius: 30px;
+    padding: 6px 18px;
     display: flex;
     align-items: center;
     justify-content: center;
-    box-shadow: 0 0 15px rgba(0,255,150,0.2);
-    height: fit-content;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    transition: all 0.2s ease;
+}
+
+.player-badge:hover {
+    border-color: var(--gold-light);
+    box-shadow: 0 0 12px rgba(201, 160, 61, 0.2);
 }
 
 .player-top { grid-column: 2; justify-self: center; align-self: center; }
@@ -78,14 +114,17 @@ body {
 
 .badge-info { text-align: center; }
 .p-name { 
-    font-family: 'Oswald', sans-serif; 
-    color: var(--green-bright); 
-    font-size: 14px; 
+    font-family: 'Cinema', 'Oswald', sans-serif; 
+    color: var(--gold-light); 
+    font-size: 15px; 
     text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 500;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
 }
-.p-cards { font-size: 12px; color: #ccc; }
+.p-cards { font-size: 11px; color: #bba88a; font-family: 'Roboto', sans-serif; }
 
-/* Стол */
+/* Main table - classic round table */
 .main-table {
     grid-column: 2;
     grid-row: 2;
@@ -93,180 +132,268 @@ body {
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    background: rgba(255,255,255,0.02);
+    background: radial-gradient(ellipse at 30% 30%, #1e5a38, #0a2a18);
+    box-shadow: 0 20px 35px rgba(0, 0, 0, 0.5), inset 0 1px 4px rgba(255, 255, 255, 0.1), 0 0 0 2px rgba(201, 160, 61, 0.3);
+    margin: 15px;
+    position: relative;
+}
+
+/* Gold rim around table */
+.main-table::after {
+    content: "";
+    position: absolute;
+    top: -8px;
+    left: -8px;
+    right: -8px;
+    bottom: -8px;
+    border-radius: 50%;
+    border: 1px solid var(--gold);
+    opacity: 0.4;
+    pointer-events: none;
 }
 
 .table-pairs {
     display: flex;
     flex-wrap: wrap;
-    gap: 25px;
+    gap: 28px;
     justify-content: center;
-    perspective: 1000px;
+    perspective: 1200px;
 }
 
-/* Эффект наложения карт (смещение) */
+/* Card pairs on table */
 .card-pair {
     position: relative;
-    width: 70px;
-    height: 100px;
+    width: 75px;
+    height: 105px;
+    filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.3));
 }
 
 .card {
-    width: 70px;
-    height: 100px;
-    background: white;
-    border-radius: 6px;
+    width: 75px;
+    height: 105px;
+    background: linear-gradient(145deg, #fff8f0, #ffe8d4);
+    border-radius: 8px;
     box-shadow: var(--card-shadow);
-    border: 1px solid #ddd;
+    border: none;
+    position: relative;
+    transition: transform 0.2s ease;
 }
 
-/* Карта защиты смещается на 15px вправо и вниз */
+/* Gold border for defense card */
 .card-pair .card:nth-child(2) {
     position: absolute;
-    top: 15px;
-    left: 15px;
+    top: 12px;
+    left: 12px;
     z-index: 10;
-    transform: rotate(5deg);
-    border: 2px solid var(--green-bright);
+    transform: rotate(4deg);
+    border: 1.5px solid var(--gold);
+    box-shadow: 0 0 0 1px rgba(201, 160, 61, 0.5), 0 8px 18px rgba(0, 0, 0, 0.3);
 }
 
-/* Ваша рука */
+/* Playing card suits simulation */
+.card::before {
+    content: "🂭";
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    font-size: 20px;
+    opacity: 0;
+}
+
+/* Player hand area */
 .my-area {
     grid-column: 1 / 4;
     grid-row: 3;
     display: flex;
     justify-content: center;
     align-items: flex-end;
-    padding-bottom: 10px;
+    padding-bottom: 15px;
+    background: linear-gradient(to top, rgba(0,0,0,0.3), transparent);
+    border-radius: 40px 40px 0 0;
 }
 
 .hand {
     display: flex;
-    gap: -10px; /* Карты чуть внахлест */
+    gap: -8px;
 }
 
 .hand .card {
     cursor: pointer;
-    transition: 0.2s ease-out;
+    transition: all 0.25s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+    margin-left: -12px;
+    transform-origin: bottom center;
+}
+
+.hand .card:first-child {
+    margin-left: 0;
 }
 
 .hand .card:hover {
-    transform: translateY(-30px) scale(1.1);
+    transform: translateY(-28px) scale(1.08);
     z-index: 100;
-    box-shadow: 0 10px 20px rgba(0,0,0,0.6);
+    box-shadow: 0 15px 25px rgba(0, 0, 0, 0.5), 0 0 0 2px var(--gold-light);
 }
 
-/* Уведомление (Status) */
+/* Status toast - elegant */
 .status-toast {
     position: fixed;
-    top: 20px;
-    left: 20px;
-    background: var(--gold);
-    color: black;
-    padding: 6px 15px;
-    border-radius: 4px;
-    font-weight: bold;
+    bottom: 25px;
+    left: 25px;
+    background: linear-gradient(135deg, #1a1a0a, #0f0f05);
+    color: var(--gold-light);
+    padding: 8px 20px;
+    border-radius: 30px;
+    font-weight: 500;
     font-family: 'Oswald', sans-serif;
     font-size: 13px;
     z-index: 1100;
-    box-shadow: 4px 4px 0px rgba(0,0,0,0.2);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(201, 160, 61, 0.3);
     text-transform: uppercase;
+    letter-spacing: 1px;
+    backdrop-filter: blur(5px);
 }
 
-/* Адаптация под мелкие экраны */
+/* Responsive */
 @media (max-width: 600px) {
-    .card { width: 50px; height: 75px; }
-    .card-pair { width: 50px; height: 75px; }
-    .game-board { grid-template-rows: 60px 1fr 130px; }
+    .card { width: 52px; height: 74px; }
+    .card-pair { width: 52px; height: 74px; }
+    .game-board { grid-template-rows: 65px 1fr 140px; }
+    .player-badge { padding: 3px 10px; }
+    .p-name { font-size: 11px; }
 }
 
 .role-badge {
-    font-size: 10px;
-    padding: 2px 6px;
-    border-radius: 10px;
-    margin-top: 5px;
+    font-size: 9px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    margin-top: 6px;
     text-align: center;
+    font-weight: bold;
+    letter-spacing: 0.5px;
 }
 
 .role-badge.attacker {
-    background: rgba(255, 152, 0, 0.3);
-    color: #ff9800;
+    background: rgba(196, 44, 44, 0.25);
+    color: #ffaa66;
+    border: 0.5px solid rgba(196, 44, 44, 0.5);
 }
 
 .role-badge.defender {
-    background: rgba(76, 175, 80, 0.3);
-    color: #4caf50;
+    background: rgba(80, 140, 70, 0.3);
+    color: #b8e0a8;
+    border: 0.5px solid rgba(80, 140, 70, 0.5);
 }
 
 .player-name {
-    font-family: 'Oswald', sans-serif;
-    color: #00ff96;
+    font-family: 'Cinema', 'Oswald', sans-serif;
+    color: var(--gold);
     font-size: 14px;
-    font-weight: bold;
+    font-weight: 500;
+    text-transform: uppercase;
 }
 
 .player-cards {
-    font-size: 12px;
-    color: #ccc;
+    font-size: 11px;
+    color: #cbbd9c;
 }
 
 .empty-text {
-    color: rgba(255,255,255,0.5);
+    color: rgba(235, 215, 165, 0.4);
     text-align: center;
     font-size: 14px;
+    font-style: italic;
 }
 
 .win-message {
-    color: #ffd700;
-    font-size: 24px;
+    color: var(--gold-light);
+    font-size: 28px;
     text-align: center;
     padding: 20px;
     font-weight: bold;
+    text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    letter-spacing: 2px;
 }
 
 .action-btn {
-    transition: all 0.3s;
+    transition: all 0.25s ease;
+    background: linear-gradient(135deg, #2a2418, #1c1710);
+    border: 1px solid var(--gold);
+    color: var(--gold-light);
+    font-weight: 600;
+    padding: 8px 20px;
+    border-radius: 40px;
+    cursor: pointer;
+    font-family: 'Oswald', sans-serif;
+    letter-spacing: 1px;
 }
 
 .action-btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    box-shadow: 0 6px 14px rgba(0, 0, 0, 0.3), 0 0 0 1px var(--gold-light);
+    background: linear-gradient(135deg, #3a3222, #2a2418);
 }
 
 .action-btn:active {
-    transform: translateY(0);
+    transform: translateY(1px);
 }
 
 .win-message {
-    color: #ffd700;
-    font-size: 24px;
+    color: var(--gold-light);
+    font-size: 26px;
     text-align: center;
-    padding: 20px;
+    padding: 18px;
     font-weight: bold;
-    background: rgba(0,0,0,0.7);
-    border-radius: 15px;
-    margin: 20px;
+    background: linear-gradient(135deg, rgba(0,0,0,0.8), rgba(30,20,10,0.9));
+    border-radius: 60px;
+    margin: 20px auto;
+    width: fit-content;
+    border: 1px solid var(--gold);
+    backdrop-filter: blur(10px);
 }
 
 .player-winner {
-    color: #ffd700;
-    text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+    color: var(--gold);
+    text-shadow: 0 0 8px rgba(201, 160, 61, 0.6);
+    font-weight: bold;
 }
 
 .player-loser {
-    color: #ff4444;
+    color: #b06060;
     text-decoration: line-through;
+    opacity: 0.7;
 }
 
 #searchLobbyInput {
-    width: 200px;
+    width: 220px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid var(--gold);
+    border-radius: 30px;
+    padding: 8px 16px;
+    color: var(--cream);
+    font-family: 'Roboto', sans-serif;
 }
 
 #searchLobbyInput::placeholder {
-    color: #888;
+    color: #bba27a;
+    font-style: italic;
 }
 
 #searchLobbyInput:focus {
     outline: none;
-    box-shadow: 0 0 10px rgba(0, 255, 150, 0.3);
+    border-color: var(--gold-light);
+    box-shadow: 0 0 10px rgba(201, 160, 61, 0.2);
+    background: rgba(0, 0, 0, 0.6);
 }
+
+/* Additional luxury touches */
+button, .action-btn, .minimal-exit {
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+/* Gold trim for hand cards */
+.hand .card {
+    border-bottom: 2px solid var(--gold);
+    border-right: 1px solid rgba(201,160,61,0.3);
+}
+```
