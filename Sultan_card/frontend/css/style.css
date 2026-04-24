@@ -1,5 +1,4 @@
-Вот улучшенная версия CSS в стиле «лакшери казино» с благородной зелено-красной гаммой, золотыми обводками, мягкими тенями и без неона.
-```css
+
 :root {
     --gold: #c9a03d;
     --gold-light: #e8c468;
@@ -396,4 +395,3 @@ button, .action-btn, .minimal-exit {
     border-bottom: 2px solid var(--gold);
     border-right: 1px solid rgba(201,160,61,0.3);
 }
-```
