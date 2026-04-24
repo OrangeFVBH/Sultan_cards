@@ -198,9 +198,9 @@ router.post('/update-stats', async (req, res) => {
             const user = await User.findOne({ username });
             if (user) {
                 if (won) {
-                    await user.addWin(); // Используем метод из модели
+                    await user.addWin();
                 } else {
-                    await user.addLoss(); // Используем метод из модели
+                    await user.addLoss();
                 }
                 console.log(`📊 Статистика обновлена в MongoDB: ${username}`);
             }
@@ -221,6 +221,38 @@ router.post('/update-stats', async (req, res) => {
         res.json({ success: true });
     } catch (error) {
         console.error('Ошибка обновления статистики:', error);
+        res.status(500).json({ error: 'Ошибка сервера' });
+    }
+});
+
+// Получить топ-10 игроков по победам
+router.get('/leaderboard', async (req, res) => {
+    try {
+        let useMongoDB = mongoose.connection.readyState === 1;
+        
+        if (useMongoDB) {
+            const leaders = await User.find({})
+                .sort({ wins: -1, gamesPlayed: -1 })
+                .limit(10)
+                .select('username wins losses gamesPlayed');
+            
+            res.json(leaders);
+        } else {
+            // Из временного хранилища
+            const tempLeaders = Array.from(tempUsers.entries())
+                .map(([username, data]) => ({
+                    username,
+                    wins: data.wins || 0,
+                    losses: data.losses || 0,
+                    gamesPlayed: data.gamesPlayed || 0
+                }))
+                .sort((a, b) => b.wins - a.wins || b.gamesPlayed - a.gamesPlayed)
+                .slice(0, 10);
+            
+            res.json(tempLeaders);
+        }
+    } catch (error) {
+        console.error('Ошибка получения лидерборда:', error);
         res.status(500).json({ error: 'Ошибка сервера' });
     }
 });

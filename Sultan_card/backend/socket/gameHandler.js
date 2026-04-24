@@ -16,12 +16,23 @@ module.exports = (io) => {
                 return callback({ success: false, error: 'Не указано имя пользователя' });
             }
             
+            // Проверка уникальности имени лобби
+            const providedName = lobbyName || `Лобби ${generateLobbyId().slice(0, 6)}`;
+            const nameExists = Array.from(lobbies.values()).some(l => 
+                l.name.toLowerCase() === providedName.toLowerCase()
+            );
+            
+            if (nameExists) {
+                return callback({ success: false, error: 'Лобби с таким названием уже существует! Пожалуйста, выберите другое название.' });
+            }
+            
             const lobbyId = generateLobbyId();
             const lobby = {
                 lobbyId,
-                name: lobbyName || `Лобби ${lobbyId.slice(0, 6)}`,
+                name: providedName,
                 creator: username,
                 players: [{ username, socketId: socket.id, joinedAt: new Date() }],
+                playersCount: 1,  // Добавляем поле playersCount
                 isPrivate: isPrivate || false,
                 password: isPrivate ? password : null,
                 maxPlayers: 3,
@@ -33,8 +44,9 @@ module.exports = (io) => {
             socket.currentLobby = lobbyId;
             socket.currentUsername = username;
             
-            console.log(`✅ Создано лобби ${lobbyId} (приватное: ${isPrivate}) пользователем ${username}`);
+            console.log(`✅ Создано лобби ${lobbyId} (${providedName}) пользователем ${username}`);
             
+            // Возвращаем лобби с правильными данными
             callback({ success: true, lobbyId, lobby });
             
             // Обновляем список лобби для всех
@@ -43,16 +55,15 @@ module.exports = (io) => {
 
         // ================== ПОЛУЧЕНИЕ СПИСКА ЛОББИ ==================
         socket.on('getLobbies', () => {
-            // Показываем ВСЕ лобби в ожидании (и публичные, и приватные)
             const allLobbies = Array.from(lobbies.values())
                 .filter(l => l.status === 'waiting' && l.players.length < l.maxPlayers)
                 .map(l => ({
                     lobbyId: l.lobbyId,
                     name: l.name,
                     creator: l.creator,
-                    playersCount: l.players.length,
+                    playersCount: l.players.length,  // Используем реальную длину массива
                     maxPlayers: l.maxPlayers,
-                    hasPassword: l.isPrivate  // Помечаем, есть ли пароль
+                    hasPassword: l.isPrivate
                 }));
             
             socket.emit('lobbiesList', allLobbies);
@@ -92,13 +103,23 @@ module.exports = (io) => {
             }
             
             lobby.players.push({ username, socketId: socket.id, joinedAt: new Date() });
+            lobby.playersCount = lobby.players.length;  // Обновляем счетчик
             socket.join(lobbyId);
             socket.currentLobby = lobbyId;
             socket.currentUsername = username;
             
             console.log(`👤 ${username} присоединился к лобби ${lobbyId} (${lobby.players.length}/${lobby.maxPlayers})`);
             
-            callback({ success: true, lobby });
+            callback({ success: true, lobby: {
+                lobbyId: lobby.lobbyId,
+                name: lobby.name,
+                creator: lobby.creator,
+                players: lobby.players.map(p => ({ username: p.username })),
+                playersCount: lobby.players.length,
+                maxPlayers: lobby.maxPlayers,
+                isPrivate: lobby.isPrivate,
+                status: lobby.status
+            }});
             
             // Обновляем лобби для всех участников
             broadcastLobbyUpdate(lobbyId);
@@ -128,6 +149,7 @@ module.exports = (io) => {
             }
             
             lobby.players = lobby.players.filter(p => p.username !== usernameToKick);
+            lobby.playersCount = lobby.players.length;  // Обновляем счетчик
             
             io.to(playerToKick.socketId).emit('kickedFromLobby', { 
                 message: `Вас кикнули из лобби ${lobby.name}` 
@@ -150,6 +172,9 @@ module.exports = (io) => {
         // ================== ПОКИНУТЬ ЛОББИ ==================
         socket.on('leaveLobby', (data, callback) => {
             const lobbyId = socket.currentLobby;
+            const username = socket.currentUsername;
+            
+            console.log(`🚪 Попытка выхода из лобби: ${username}, lobbyId: ${lobbyId}`);
             
             if (!lobbyId) {
                 return callback?.({ success: false, error: 'Вы не в лобби' });
@@ -158,27 +183,57 @@ module.exports = (io) => {
             const lobby = lobbies.get(lobbyId);
             
             if (lobby) {
-                const wasCreator = lobby.creator === socket.currentUsername;
-                lobby.players = lobby.players.filter(p => p.username !== socket.currentUsername);
+                const wasCreator = lobby.creator === username;
+                const wasInLobby = lobby.players.some(p => p.username === username);
                 
-                if (lobby.players.length === 0) {
-                    lobbies.delete(lobbyId);
-                    console.log(`🗑️ Лобби ${lobbyId} удалено`);
-                } else if (wasCreator) {
-                    lobby.creator = lobby.players[0].username;
-                    console.log(`👑 Новый создатель: ${lobby.creator}`);
-                    broadcastLobbyUpdate(lobbyId);
-                } else {
-                    broadcastLobbyUpdate(lobbyId);
+                if (wasInLobby) {
+                    // Удаляем игрока из лобби
+                    lobby.players = lobby.players.filter(p => p.username !== username);
+                    lobby.playersCount = lobby.players.length;
+                    
+                    console.log(`👋 ${username} покинул лобби ${lobbyId}. Осталось игроков: ${lobby.players.length}`);
+                    
+                    if (lobby.players.length === 0) {
+                        // Если лобби пустое - удаляем
+                        lobbies.delete(lobbyId);
+                        console.log(`🗑️ Лобби ${lobbyId} удалено (пустое)`);
+                        // Уведомляем всех, что лобби исчезло
+                        broadcastLobbiesList();
+                    } else {
+                        // Если создатель ушел - назначаем нового
+                        if (wasCreator) {
+                            lobby.creator = lobby.players[0].username;
+                            console.log(`👑 Новый создатель лобби ${lobbyId}: ${lobby.creator}`);
+                        }
+                        
+                        // Обновляем лобби для оставшихся игроков
+                        broadcastLobbyUpdate(lobbyId);
+                        broadcastLobbiesList();
+                        
+                        // Отправляем оставшимся игрокам обновленный список игроков
+                        io.to(lobbyId).emit('lobbyUpdate', {
+                            lobbyId: lobby.lobbyId,
+                            name: lobby.name,
+                            creator: lobby.creator,
+                            players: lobby.players.map(p => ({ username: p.username })),
+                            playersCount: lobby.players.length,
+                            maxPlayers: lobby.maxPlayers,
+                            isPrivate: lobby.isPrivate,
+                            status: lobby.status
+                        });
+                    }
                 }
-                
-                broadcastLobbiesList();
             }
             
+            // ВАЖНО: Очищаем данные сокета
             socket.leave(lobbyId);
             delete socket.currentLobby;
+            delete socket.currentUsername;
             
-            console.log(`🚪 ${socket.currentUsername} покинул лобби`);
+            // Отправляем игроку команду очистить локальное состояние
+            socket.emit('lobbyLeft', { success: true });
+            
+            console.log(`✅ ${username} полностью вышел из лобби, состояние сокета очищено`);
             callback?.({ success: true });
         });
 
@@ -245,7 +300,6 @@ module.exports = (io) => {
 
         // ================== ЗАПРОС СОСТОЯНИЯ ИГРЫ ==================
         socket.on('requestGameState', (data) => {
-            // Поддержка как строки (старый формат) так и объекта с lobbyId
             let username, lobbyId;
             
             if (typeof data === 'string') {
@@ -258,7 +312,6 @@ module.exports = (io) => {
             
             console.log(`📞 requestGameState от ${username}, lobbyId = ${lobbyId || socket.currentLobby}`);
             
-            // Если lobbyId не передан и нет в сокете - ошибка
             const finalLobbyId = lobbyId || socket.currentLobby;
             
             if (!finalLobbyId) {
@@ -367,15 +420,13 @@ module.exports = (io) => {
             console.log(`❌ Отключился: ${socket.id}`);
             
             for (const [lobbyId, lobby] of lobbies.entries()) {
-                // Ищем по socketId, но если игра уже в статусе 'playing', 
-                // возможно, не стоит сразу удалять игрока, чтобы он мог переподключиться
                 const playerIndex = lobby.players.findIndex(p => p.socketId === socket.id);
                 
                 if (playerIndex !== -1) {
-                    // Если игра еще не началась, удаляем
                     if (lobby.status === 'waiting') {
                         const disconnectedPlayer = lobby.players[playerIndex];
                         lobby.players.splice(playerIndex, 1);
+                        lobby.playersCount = lobby.players.length;  // Обновляем счетчик
                         
                         if (lobby.players.length === 0) {
                             lobbies.delete(lobbyId);
@@ -398,7 +449,6 @@ module.exports = (io) => {
         }
         
         function broadcastLobbiesList() {
-            // Показываем ВСЕ лобби в ожидании
             const allLobbies = Array.from(lobbies.values())
                 .filter(l => l.status === 'waiting' && l.players.length < l.maxPlayers)
                 .map(l => ({

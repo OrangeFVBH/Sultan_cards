@@ -8,6 +8,7 @@ let playerName = null;
 let gameReady = false;
 let stateRequestCount = 0;
 let currentGameState = null;
+let currentLobbyId = null;
 
 function initGameUI() {
     console.log('initGameUI started');
@@ -16,8 +17,8 @@ function initGameUI() {
     console.log('Player name from session:', playerName);
     
     const urlParams = new URLSearchParams(window.location.search);
-    const lobbyId = urlParams.get('lobbyId') || sessionStorage.getItem('currentLobbyId');
-    console.log('LobbyId:', lobbyId);
+    currentLobbyId = urlParams.get('lobbyId') || sessionStorage.getItem('currentLobbyId');
+    console.log('LobbyId:', currentLobbyId);
     
     if (!playerName) {
         console.error('Нет имени игрока!');
@@ -32,6 +33,12 @@ function initGameUI() {
         return;
     }
     
+    window.addEventListener('beforeunload', () => {
+        if (socket && socket.connected) {
+            socket.emit('leaveLobby', {});
+        }
+    });
+    
     if (!socket) {
         socket = io({
             reconnection: true,
@@ -42,21 +49,16 @@ function initGameUI() {
         socket.on('connect', () => {
             console.log('✅ Socket connected in gameUI, id:', socket.id);
             
-            const urlParams = new URLSearchParams(window.location.search);
-            const lobbyIdFromUrl = urlParams.get('lobbyId') || sessionStorage.getItem('currentLobbyId');
-            
-            console.log('Устанавливаем lobbyId в сокет:', lobbyIdFromUrl);
-            
-            if (lobbyIdFromUrl) {
-                socket.currentLobby = lobbyIdFromUrl;
-                socket.currentUsername = playerName;
-                sessionStorage.setItem('currentLobbyId', lobbyIdFromUrl);
-            } else {
+            if (!currentLobbyId) {
                 console.error('❌ Нет lobbyId!');
                 alert('Ошибка: не удалось определить лобби. Перенаправление...');
                 window.location.href = '/lobby.html';
                 return;
             }
+            
+            socket.currentLobby = currentLobbyId;
+            socket.currentUsername = playerName;
+            sessionStorage.setItem('currentLobbyId', currentLobbyId);
             
             gameReady = true;
             stateRequestCount = 0;
@@ -190,9 +192,11 @@ function renderPlayersInfo(players, attacker, defender) {
         if (otherPlayers[0].cardCount === 0) winnerClass = 'player-winner';
         
         playerTop.innerHTML = `
-            <div class="player-name ${winnerClass}">${escapeHtml(otherPlayers[0].username)}</div>
-            <div class="player-cards">📋 ${otherPlayers[0].cardCount} карт</div>
-            ${roleHtml}
+            <div class="badge-info">
+                <div class="player-name ${winnerClass}">${escapeHtml(otherPlayers[0].username)}</div>
+                <div class="player-cards">🎴 ${otherPlayers[0].cardCount} карт</div>
+                ${roleHtml}
+            </div>
         `;
     }
     
@@ -204,9 +208,11 @@ function renderPlayersInfo(players, attacker, defender) {
         if (otherPlayers[1].cardCount === 0) winnerClass = 'player-winner';
         
         playerLeft.innerHTML = `
-            <div class="player-name ${winnerClass}">${escapeHtml(otherPlayers[1].username)}</div>
-            <div class="player-cards">📋 ${otherPlayers[1].cardCount} карт</div>
-            ${roleHtml}
+            <div class="badge-info">
+                <div class="player-name ${winnerClass}">${escapeHtml(otherPlayers[1].username)}</div>
+                <div class="player-cards">🎴 ${otherPlayers[1].cardCount} карт</div>
+                ${roleHtml}
+            </div>
         `;
     }
 }
@@ -451,8 +457,6 @@ function renderActionButtons(state) {
     console.log('isMyAdditionalAttackTurn:', state.isMyAdditionalAttackTurn);
     console.log('attackCount:', attackCount, 'defendCount:', defendCount);
     
-    // Кнопка "Завершить ход" - ТОЛЬКО для обычного атакующего (не для дополнительного)
-    // Важно: НЕ показывать эту кнопку, если это дополнительная атака
     if (state.isMyTurnAttack && !state.isMyAdditionalAttackTurn && table.length > 0 && allDefended) {
         const endBtn = createButton('✅ Завершить ход', '#ff9800', () => {
             console.log('Нажата кнопка завершения хода');
@@ -467,7 +471,6 @@ function renderActionButtons(state) {
         console.log('✅ Добавлена кнопка "Завершить ход"');
     }
     
-    // Кнопка "Завершить подкидывание" - ТОЛЬКО для дополнительного атакующего (третьего игрока)
     if (state.isMyAdditionalAttackTurn) {
         const endAdditionalBtn = createButton('✅ Завершить подкидывание', '#9c27b0', () => {
             console.log('Нажата кнопка завершения подкидывания');
@@ -482,7 +485,6 @@ function renderActionButtons(state) {
         console.log('✅ Добавлена кнопка "Завершить подкидывание"');
     }
     
-    // Кнопка "Забрать карты" - только для защитника
     if (state.isMyTurnDefend && hasUndefended) {
         const takeBtn = createButton('📥 Забрать карты', '#f44336', () => {
             console.log('Нажата кнопка забрать карты');
@@ -495,6 +497,18 @@ function renderActionButtons(state) {
         });
         buttonsDiv.appendChild(takeBtn);
         console.log('✅ Добавлена кнопка "Забрать карты"');
+    }
+}
+
+function exitGame() {
+    if (confirm('Выйти из игры?')) {
+        if (socket && socket.connected) {
+            socket.emit('leaveLobby', {}, () => {
+                window.location.href = '/lobby.html';
+            });
+        } else {
+            window.location.href = '/lobby.html';
+        }
     }
 }
 

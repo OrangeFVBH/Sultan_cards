@@ -257,3 +257,16 @@ body {
     color: #ff4444;
     text-decoration: line-through;
 }
+
+#searchLobbyInput {
+    width: 200px;
+}
+
+#searchLobbyInput::placeholder {
+    color: #888;
+}
+
+#searchLobbyInput:focus {
+    outline: none;
+    box-shadow: 0 0 10px rgba(0, 255, 150, 0.3);
+}
