@@ -118,15 +118,6 @@ function initGameUI() {
 function updateGameState(state) {
     if (!state) return;
     
-    console.log('=== updateGameState ===');
-    console.log('Received state:', {
-        isMyTurnAttack: state.isMyTurnAttack,
-        isMyTurnDefend: state.isMyTurnDefend,
-        isMyAdditionalAttackTurn: state.isMyAdditionalAttackTurn,
-        tableLength: state.table?.length,
-        table: state.table?.map(t => ({ type: t.type, card: t.card?.rank + t.card?.suit }))
-    });
-    
     isMyAttackTurn = state.isMyTurnAttack;
     isMyDefendTurn = state.isMyTurnDefend;
     isMyAdditionalAttackTurn = state.isMyAdditionalAttackTurn || false;
@@ -152,35 +143,40 @@ function renderStatus(state) {
         } else {
             statusBar.innerHTML = `🏆 ПОБЕДИТЕЛЬ: ${state.gameWinner} 🏆`;
         }
-        statusBar.style.background = '#ffd700';
-        statusBar.style.color = '#000';
+        statusBar.style.background = 'linear-gradient(135deg, #d4af37, #b8860b)';
+        statusBar.style.color = '#1a0f08';
+        statusBar.style.borderLeft = '6px solid #ffd700';
         return;
     }
     
     let statusHtml = '';
     if (isMyAdditionalAttackTurn) {
-        statusHtml = '➕ ВЫ МОЖЕТЕ ПОДКИНУТЬ КАРТЫ ➕<br><span style="font-size:12px">Нажмите на карту, чтобы подкинуть</span>';
-        statusBar.style.background = '#9c27b0';
+        statusHtml = '➕ ПОДКИДЫВАНИЕ КАРТ ➕<br><span style="font-size:12px">Нажмите на карту, чтобы подкинуть</span>';
+        statusBar.style.background = 'rgba(106, 27, 154, 0.92)';
+        statusBar.style.borderLeft = '6px solid #d4af37';
     } else if (isMyAttackTurn) {
         statusHtml = '🔥 ВЫ АТАКУЕТЕ 🔥<br><span style="font-size:12px">Нажмите на карту, чтобы сходить</span>';
-        statusBar.style.background = '#ff9800';
+        statusBar.style.background = 'rgba(198, 76, 0, 0.92)';
+        statusBar.style.borderLeft = '6px solid #d4af37';
     } else if (isMyDefendTurn) {
         statusHtml = '🛡️ ВЫ ОТБИВАЕТЕСЬ 🛡️<br><span style="font-size:12px">Нажмите на карту, чтобы побить</span>';
-        statusBar.style.background = '#4caf50';
+        statusBar.style.background = 'rgba(33, 99, 33, 0.92)';
+        statusBar.style.borderLeft = '6px solid #d4af37';
     } else {
-        statusHtml = `🎴 Ходит: ${state.currentAttacker || '—'} → отбивается: ${state.currentDefender || '—'}<br><span style="font-size:12px">Козырь: ♢ БУБНЫ</span>`;
-        statusBar.style.background = '#1d1d1d';
+        statusHtml = `🎴 Ходит: ${state.currentAttacker || '—'} → отбивается: ${state.currentDefender || '—'}<br><span style="font-size:12px">♢ КОЗЫРЬ: БУБНЫ</span>`;
+        statusBar.style.background = 'rgba(10, 6, 4, 0.92)';
+        statusBar.style.borderLeft = '6px solid #d4af37';
     }
     
     statusBar.innerHTML = statusHtml;
-    statusBar.style.color = '#fff';
+    statusBar.style.color = '#f5e2b0';
 }
 
 function renderPlayersInfo(players, attacker, defender) {
     const playerTop = document.getElementById('playerTop');
-    const playerLeft = document.getElementById('playerLeft');
+    const playerRight = document.getElementById('playerRight');
     
-    if (!playerTop || !playerLeft) return;
+    if (!playerTop || !playerRight) return;
     
     const otherPlayers = players.filter(p => p.id !== socket.id);
     
@@ -207,7 +203,7 @@ function renderPlayersInfo(players, attacker, defender) {
         if (otherPlayers[1].username === defender) roleHtml = '<div class="role-badge defender">🛡️ ОТБИВАЕТСЯ</div>';
         if (otherPlayers[1].cardCount === 0) winnerClass = 'player-winner';
         
-        playerLeft.innerHTML = `
+        playerRight.innerHTML = `
             <div class="badge-info">
                 <div class="player-name ${winnerClass}">${escapeHtml(otherPlayers[1].username)}</div>
                 <div class="player-cards">🎴 ${otherPlayers[1].cardCount} карт</div>
@@ -228,13 +224,13 @@ function createCardImage(card, className, onClickHandler = null, cardIndex = nul
     div.className = `card ${className}`;
     
     const img = document.createElement('img');
-    const imgPath = getCardImagePath(card);
+    const imgPath = `/cards/${card.rank}_of_${card.suit}.png`;
     img.src = imgPath;
     img.alt = `${card.rank} ${card.suit}`;
     img.style.width = '100%';
     img.style.height = '100%';
     img.style.objectFit = 'contain';
-    img.style.borderRadius = '8px';
+    img.style.borderRadius = '10px';
     
     img.onerror = () => {
         console.warn(`Не удалось загрузить: ${imgPath}`);
@@ -249,13 +245,14 @@ function createCardImage(card, className, onClickHandler = null, cardIndex = nul
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            background: white;
-            border-radius: 8px;
-            color: ${isRed ? 'red' : 'black'};
-            font-size: 24px;
+            background: linear-gradient(145deg, #fffcf5, #fff0e0);
+            border-radius: 10px;
+            color: ${isRed ? '#b12a2a' : '#2c2c2c'};
+            font-size: 28px;
             font-weight: bold;
+            font-family: 'Playfair Display', serif;
         `;
-        textDiv.innerHTML = `<div style="font-size: 28px;">${card.rank}</div><div style="font-size: 32px;">${suits[card.suit]}</div>`;
+        textDiv.innerHTML = `<div style="font-size: 32px;">${card.rank}</div><div style="font-size: 36px;">${suits[card.suit]}</div>`;
         div.appendChild(textDiv);
     };
     
@@ -273,31 +270,11 @@ function createCardImage(card, className, onClickHandler = null, cardIndex = nul
         const queenMark = document.createElement('div');
         queenMark.className = 'queen-mark';
         queenMark.textContent = '♕';
-        queenMark.style.cssText = `
-            position: absolute;
-            top: -10px;
-            right: -10px;
-            background: gold;
-            color: red;
-            border-radius: 50%;
-            width: 25px;
-            height: 25px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            font-size: 16px;
-            border: 2px solid #ffd700;
-        `;
         div.style.position = 'relative';
         div.appendChild(queenMark);
     }
     
     return div;
-}
-
-function getCardImagePath(card) {
-    return `/cards/${card.rank}_of_${card.suit}.png`;
 }
 
 function renderTable(table) {
@@ -307,7 +284,7 @@ function renderTable(table) {
     zone.innerHTML = '';
     
     if (!table || table.length === 0) {
-        zone.innerHTML = `<div class="empty-text">Стол пуст<br>Нажмите на карту, чтобы сходить</div>`;
+        zone.innerHTML = `<div class="empty-text" style="text-align:center; background:rgba(0,0,0,0.5); padding:15px 25px; border-radius:60px;">❖ СТОЛ ПУСТ ❖<br>Сделайте ход</div>`;
         return;
     }
     
@@ -332,118 +309,73 @@ function renderTable(table) {
             emptyDiv.className = 'card-placeholder';
             emptyDiv.textContent = '?';
             emptyDiv.style.cssText = `
-                width: 70px;
-                height: 100px;
-                background: rgba(0,0,0,0.5);
-                border-radius: 8px;
+                width: 88px;
+                height: 122px;
+                background: rgba(0,0,0,0.65);
+                border-radius: 10px;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                color: white;
-                font-size: 24px;
+                color: #d4af37;
+                font-size: 32px;
+                font-weight: bold;
                 position: absolute;
                 top: 15px;
                 left: 15px;
+                border: 1px dashed #d4af37;
+                backdrop-filter: blur(4px);
             `;
             pairDiv.appendChild(emptyDiv);
         }
-        
         container.appendChild(pairDiv);
     }
-    
     zone.appendChild(container);
 }
 
 function renderMyHand(hand, state) {
     const handEl = document.getElementById('myHand');
     if (!handEl) return;
-    
     handEl.innerHTML = '';
     
     if (hand.length === 0) {
-        handEl.innerHTML = '<div class="win-message">🏆 ВЫ ПОБЕДИТЕЛЬ! 🏆<br><span style="font-size:14px;">Наблюдайте за игрой</span></div>';
+        handEl.innerHTML = '<div class="win-message" style="background:rgba(0,0,0,0.6); padding:15px 30px; border-radius:60px; text-align:center;">🏆 ВЫ ПОБЕДИТЕЛЬ! 🏆<br><span style="font-size:14px; color:#c9af7b;">Наблюдайте за игрой</span></div>';
         return;
     }
     
     hand.forEach((card, index) => {
         const onClick = (cardIdx) => {
             if (isMyAdditionalAttackTurn) {
-                console.log(`➕ Подкидывание картой ${card.rank} ${card.suit}, индекс ${cardIdx}`);
                 socket.emit('additionalAttack', { cardIndex: cardIdx }, (result) => {
-                    if (result && !result.success) {
-                        alert(result.error || 'Нельзя подкинуть эту карту');
-                    }
+                    if (result && !result.success) alert(result.error || 'Нельзя подкинуть эту карту');
                 });
             } else if (isMyAttackTurn) {
-                console.log(`⚔️ Атака картой ${card.rank} ${card.suit}, индекс ${cardIdx}`);
                 socket.emit('attack', { cardIndex: cardIdx }, (result) => {
-                    if (result && !result.success) {
-                        alert(result.error || 'Нельзя сходить этой картой');
-                    }
+                    if (result && !result.success) alert(result.error || 'Нельзя сходить этой картой');
                 });
             } else if (isMyDefendTurn) {
-                console.log(`🛡️ Защита картой ${card.rank} ${card.suit}, индекс ${cardIdx}`);
                 socket.emit('defend', { cardIndex: cardIdx }, (result) => {
-                    if (result && !result.success) {
-                        alert(result.error || 'Нельзя побить этой картой');
-                    }
+                    if (result && !result.success) alert(result.error || 'Нельзя побить этой картой');
                 });
             } else {
                 alert('Сейчас не ваш ход');
             }
         };
-        
         const cardDiv = createCardImage(card, 'my-card', onClick, index);
         handEl.appendChild(cardDiv);
     });
 }
 
-function createButton(text, color, onClick) {
+function createButton(text, bgGradient, onClick) {
     const btn = document.createElement('button');
     btn.textContent = text;
-    btn.style.cssText = `
-        padding: 10px 20px;
-        background: ${color};
-        color: white;
-        border: none;
-        border-radius: 8px;
-        cursor: pointer;
-        font-size: 16px;
-        font-weight: bold;
-        z-index: 1001;
-        transition: all 0.3s;
-    `;
-    btn.onmouseover = () => {
-        btn.style.transform = 'translateY(-2px)';
-        btn.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
-    };
-    btn.onmouseout = () => {
-        btn.style.transform = 'translateY(0)';
-        btn.style.boxShadow = 'none';
-    };
+    btn.className = 'action-btn';
+    btn.style.background = bgGradient;
     btn.onclick = onClick;
     return btn;
 }
 
 function renderActionButtons(state) {
     let buttonsDiv = document.getElementById('actionButtons');
-    if (!buttonsDiv) {
-        buttonsDiv = document.createElement('div');
-        buttonsDiv.id = 'actionButtons';
-        buttonsDiv.className = 'action-buttons';
-        buttonsDiv.style.cssText = `
-            position: fixed;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            gap: 15px;
-            z-index: 1000;
-        `;
-        document.body.appendChild(buttonsDiv);
-    }
-    
-    buttonsDiv.innerHTML = '';
     
     const table = state.table || [];
     const attackCount = table.filter(t => t.type === 'attack').length;
@@ -451,52 +383,50 @@ function renderActionButtons(state) {
     const allDefended = attackCount === defendCount && attackCount > 0;
     const hasUndefended = attackCount > defendCount;
     
-    console.log('=== renderActionButtons DEBUG ===');
-    console.log('isMyTurnAttack:', state.isMyTurnAttack);
-    console.log('isMyTurnDefend:', state.isMyTurnDefend);
-    console.log('isMyAdditionalAttackTurn:', state.isMyAdditionalAttackTurn);
-    console.log('attackCount:', attackCount, 'defendCount:', defendCount);
+    let hasAnyButton = false;
     
     if (state.isMyTurnAttack && !state.isMyAdditionalAttackTurn && table.length > 0 && allDefended) {
-        const endBtn = createButton('✅ Завершить ход', '#ff9800', () => {
-            console.log('Нажата кнопка завершения хода');
-            socket.emit('endTurn', {}, (result) => {
-                console.log('endTurn result:', result);
-                if (result && !result.success) {
-                    alert(result.error);
-                }
-            });
+        hasAnyButton = true;
+    }
+    if (state.isMyAdditionalAttackTurn) {
+        hasAnyButton = true;
+    }
+    if (state.isMyTurnDefend && hasUndefended) {
+        hasAnyButton = true;
+    }
+    
+    if (!hasAnyButton) {
+        if (buttonsDiv) buttonsDiv.style.display = 'none';
+        return;
+    }
+    
+    if (!buttonsDiv) {
+        buttonsDiv = document.createElement('div');
+        buttonsDiv.id = 'actionButtons';
+        buttonsDiv.className = 'action-buttons';
+        document.body.appendChild(buttonsDiv);
+    }
+    
+    buttonsDiv.style.display = 'flex';
+    buttonsDiv.innerHTML = '';
+    
+    if (state.isMyTurnAttack && !state.isMyAdditionalAttackTurn && table.length > 0 && allDefended) {
+        const endBtn = createButton('✅ ЗАВЕРШИТЬ ХОД', 'linear-gradient(135deg, #b56a1a, #7a3e0a)', () => {
+            socket.emit('endTurn', {}, (result) => { if (result && !result.success) alert(result.error); });
         });
         buttonsDiv.appendChild(endBtn);
-        console.log('✅ Добавлена кнопка "Завершить ход"');
     }
-    
     if (state.isMyAdditionalAttackTurn) {
-        const endAdditionalBtn = createButton('✅ Завершить подкидывание', '#9c27b0', () => {
-            console.log('Нажата кнопка завершения подкидывания');
-            socket.emit('endAdditionalAttack', {}, (result) => {
-                console.log('endAdditionalAttack result:', result);
-                if (result && !result.success) {
-                    alert(result.error);
-                }
-            });
+        const endAddBtn = createButton('✅ ЗАВЕРШИТЬ ПОДКИД', 'linear-gradient(135deg, #6a1b9a, #3e0a5a)', () => {
+            socket.emit('endAdditionalAttack', {}, (result) => { if (result && !result.success) alert(result.error); });
         });
-        buttonsDiv.appendChild(endAdditionalBtn);
-        console.log('✅ Добавлена кнопка "Завершить подкидывание"');
+        buttonsDiv.appendChild(endAddBtn);
     }
-    
     if (state.isMyTurnDefend && hasUndefended) {
-        const takeBtn = createButton('📥 Забрать карты', '#f44336', () => {
-            console.log('Нажата кнопка забрать карты');
-            socket.emit('takeCards', {}, (result) => {
-                console.log('takeCards result:', result);
-                if (result && !result.success) {
-                    alert(result.error);
-                }
-            });
+        const takeBtn = createButton('📥 ЗАБРАТЬ КАРТЫ', 'linear-gradient(135deg, #8b0000, #5c0000)', () => {
+            socket.emit('takeCards', {}, (result) => { if (result && !result.success) alert(result.error); });
         });
         buttonsDiv.appendChild(takeBtn);
-        console.log('✅ Добавлена кнопка "Забрать карты"');
     }
 }
 
@@ -513,6 +443,6 @@ function exitGame() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('DOM загружен, инициализация GameUI');
+    console.log('DOM загружен, инициализация GameUI (Luxury Casino)');
     initGameUI();
 });

@@ -3,7 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Таблица лидеров - Дурак 36 карт</title>
+    <title>Таблица лидеров - Sultan Casino</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * {
             margin: 0;
@@ -12,112 +14,132 @@
         }
         
         body {
-            background: linear-gradient(135deg, #0a2f23 0%, #041f19 100%);
+            background: radial-gradient(ellipse at 30% 20%, #2a1508 0%, #0a0502 100%);
             min-height: 100vh;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-family: 'Segoe UI', Arial, sans-serif;
-            padding: 20px;
+            font-family: 'Oswald', 'Playfair Display', sans-serif;
+            padding: 40px;
+            position: relative;
+        }
+        
+        body::before {
+            content: "";
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: radial-gradient(circle at 20% 40%, rgba(212, 175, 55, 0.06) 2px, transparent 2px);
+            background-size: 50px 50px;
+            pointer-events: none;
         }
         
         .leaderboard-box {
-            background: rgba(5, 40, 31, 0.95);
-            padding: 40px;
-            border-radius: 20px;
-            box-shadow: 0 0 50px rgba(0, 255, 150, 0.4);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(0, 255, 150, 0.3);
-            min-width: 500px;
+            background: rgba(10, 6, 4, 0.94);
+            backdrop-filter: blur(12px);
+            padding: 45px 50px;
+            border-radius: 40px;
+            box-shadow: 0 0 60px rgba(0, 0, 0, 0.6), 0 0 0 2px #d4af37, 0 0 0 5px #5c3e0e;
+            border: none;
+            min-width: 800px;
+            width: auto;
+            text-align: center;
         }
         
         h1 {
-            color: #00ff96;
-            margin-bottom: 10px;
-            font-size: 32px;
-            text-align: center;
+            color: #d4af37;
+            text-shadow: 0 0 12px rgba(212, 175, 55, 0.5);
+            font-family: 'Oswald', sans-serif;
+            letter-spacing: 3px;
+            font-size: 38px;
+            margin-bottom: 8px;
         }
         
         .subtitle {
-            color: #aaa;
+            color: #c9af7b;
             margin-bottom: 30px;
             font-size: 14px;
-            text-align: center;
+            letter-spacing: 1px;
         }
         
         .leaderboard-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 20px;
-        }
-        
-        .leaderboard-table th,
-        .leaderboard-table td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid rgba(0, 255, 150, 0.3);
+            margin: 25px 0;
         }
         
         .leaderboard-table th {
-            color: #00ff96;
-            font-weight: bold;
+            color: #d4af37;
+            font-family: 'Oswald', sans-serif;
+            letter-spacing: 1.5px;
             font-size: 16px;
+            padding: 16px 12px;
+            border-bottom: 2px solid #d4af37;
         }
         
         .leaderboard-table td {
-            color: white;
+            color: #faf4e0;
+            padding: 14px 12px;
+            border-bottom: 1px solid rgba(212, 175, 55, 0.2);
+            font-size: 16px;
         }
         
-        .rank-1 {
-            color: #ffd700;
+        .rank-1 { 
+            color: #ffd700; 
             font-weight: bold;
+            text-shadow: 0 0 5px #ffd700;
+            font-size: 20px;
         }
-        
-        .rank-2 {
-            color: #c0c0c0;
-            font-weight: bold;
-        }
-        
-        .rank-3 {
-            color: #cd7f32;
-            font-weight: bold;
-        }
+        .rank-2 { color: #c0c0c0; font-weight: bold; font-size: 18px; }
+        .rank-3 { color: #cd7f32; font-weight: bold; font-size: 18px; }
         
         .back-btn {
-            width: 100%;
-            padding: 12px;
-            background: linear-gradient(135deg, #00ff96 0%, #00cc7a 100%);
-            color: #05281f;
+            background: linear-gradient(135deg, #d4af37 0%, #b8860b 100%);
+            color: #1a0f08;
             border: none;
-            border-radius: 10px;
+            padding: 14px 35px;
+            border-radius: 60px;
+            font-family: 'Oswald', sans-serif;
+            letter-spacing: 1.5px;
             font-size: 16px;
             font-weight: bold;
             cursor: pointer;
             transition: all 0.3s;
+            margin-top: 20px;
         }
         
         .back-btn:hover {
+            background: linear-gradient(135deg, #e8c547 0%, #cc9a1a 100%);
+            box-shadow: 0 5px 25px rgba(212, 175, 55, 0.5);
             transform: translateY(-2px);
-            box-shadow: 0 10px 25px rgba(0, 255, 150, 0.3);
         }
         
         .loading {
-            text-align: center;
-            color: #00ff96;
-            padding: 20px;
+            color: #d4af37;
+            padding: 40px;
+            font-size: 18px;
+            letter-spacing: 1px;
+        }
+        
+        @media (max-width: 900px) {
+            .leaderboard-box { min-width: 90%; padding: 30px 20px; }
+            .leaderboard-table th, .leaderboard-table td { font-size: 12px; padding: 10px 6px; }
+            h1 { font-size: 28px; }
         }
     </style>
 </head>
 <body>
     <div class="leaderboard-box">
         <h1>🏆 ТАБЛИЦА ЛИДЕРОВ</h1>
-        <div class="subtitle">Лучшие игроки всех времен</div>
+        <div class="subtitle">Лучшие игроки Sultan Casino</div>
         
         <div id="leaderboardContent">
             <div class="loading">Загрузка...</div>
         </div>
         
-        <button class="back-btn" onclick="goBack()">← Назад в лобби</button>
+        <button class="back-btn" onclick="goBack()">← НАЗАД В ЛОББИ</button>
     </div>
     
     <script>
@@ -125,23 +147,21 @@
             try {
                 const response = await fetch('/api/auth/leaderboard');
                 const players = await response.json();
-                
                 if (players.length === 0) {
                     document.getElementById('leaderboardContent').innerHTML = 
-                        '<div class="loading">Нет данных для отображения</div>';
+                        '<div class="loading">✨ Нет данных для отображения ✨</div>';
                     return;
                 }
-                
                 const html = `
                     <table class="leaderboard-table">
                         <thead>
                             <tr>
                                 <th>#</th>
-                                <th>Игрок</th>
-                                <th>Победы</th>
-                                <th>Поражения</th>
-                                <th>Всего игр</th>
-                                <th>Win Rate</th>
+                                <th>ИГРОК</th>
+                                <th>🏆 ПОБЕДЫ</th>
+                                <th>💔 ПОРАЖЕНИЯ</th>
+                                <th>📊 ВСЕГО ИГР</th>
+                                <th>⭐ WIN RATE</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -150,31 +170,36 @@
                                     ? ((player.wins / player.gamesPlayed) * 100).toFixed(1) 
                                     : 0;
                                 let rankClass = '';
-                                if (index === 0) rankClass = 'rank-1';
-                                if (index === 1) rankClass = 'rank-2';
-                                if (index === 2) rankClass = 'rank-3';
-                                
+                                let rankDisplay = '';
+                                if (index === 0) { rankClass = 'rank-1'; rankDisplay = '🥇'; }
+                                if (index === 1) { rankClass = 'rank-2'; rankDisplay = '🥈'; }
+                                if (index === 2) { rankClass = 'rank-3'; rankDisplay = '🥉'; }
                                 return `
                                     <tr>
-                                        <td class="${rankClass}">${index + 1}</td>
-                                        <td>${player.username}</td>
-                                        <td style="color: #4caf50">${player.wins}</td>
-                                        <td style="color: #f44336">${player.losses}</td>
+                                        <td class="${rankClass}">${rankDisplay || (index + 1)}</td>
+                                        <td style="font-weight:500;">${escapeHtml(player.username)}</td>
+                                        <td style="color: #4caf50; font-weight:bold;">${player.wins}</td>
+                                        <td style="color: #ff8888;">${player.losses}</td>
                                         <td>${player.gamesPlayed}</td>
-                                        <td style="color: #ffd700">${winRate}%</td>
+                                        <td style="color: #d4af37; font-weight:bold;">${winRate}%</td>
                                     </tr>
                                 `;
                             }).join('')}
                         </tbody>
                     </table>
                 `;
-                
                 document.getElementById('leaderboardContent').innerHTML = html;
             } catch (error) {
                 console.error('Ошибка загрузки лидерборда:', error);
                 document.getElementById('leaderboardContent').innerHTML = 
-                    '<div class="loading">Ошибка загрузки данных</div>';
+                    '<div class="loading">❌ Ошибка загрузки данных</div>';
             }
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
         }
         
         function goBack() {

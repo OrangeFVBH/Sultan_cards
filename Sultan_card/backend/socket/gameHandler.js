@@ -295,7 +295,9 @@ module.exports = (io) => {
                 }
             }, 1000);
             
-            callback({ success: true });
+            if (typeof callback === 'function') {
+    callback({ success: true });
+}
         });
 
         // ================== ЗАПРОС СОСТОЯНИЯ ИГРЫ ==================
