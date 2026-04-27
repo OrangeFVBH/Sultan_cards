@@ -41,8 +41,23 @@
     <script src="/socket.io/socket.io.js"></script>
     <script src="js/gameUI.js"></script>
     <script>
+        // Проверяем, есть ли lobbyId в URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const lobbyId = urlParams.get('lobbyId');
+        
+        if (!lobbyId) {
+            // Если нет в URL, проверяем sessionStorage
+            const savedLobbyId = sessionStorage.getItem('currentLobbyId');
+            if (savedLobbyId) {
+                // Добавляем lobbyId в URL
+                window.location.href = `/game.html?lobbyId=${savedLobbyId}`;
+            }
+        }
+        
         function exitGame() {
-            if (confirm('Выйти из игры?')) window.location.href = '/';
+            if (confirm('Выйти из игры? Вы вернетесь в лобби.')) {
+                window.location.href = '/lobby.html';
+            }
         }
     </script>
 </body>

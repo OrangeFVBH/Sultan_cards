@@ -16,14 +16,13 @@ module.exports = (io) => {
                 return callback({ success: false, error: 'Не указано имя пользователя' });
             }
             
-            // Проверка уникальности имени лобби
             const providedName = lobbyName || `Лобби ${generateLobbyId().slice(0, 6)}`;
             const nameExists = Array.from(lobbies.values()).some(l => 
                 l.name.toLowerCase() === providedName.toLowerCase()
             );
             
             if (nameExists) {
-                return callback({ success: false, error: 'Лобби с таким названием уже существует! Пожалуйста, выберите другое название.' });
+                return callback({ success: false, error: 'Лобби с таким названием уже существует!' });
             }
             
             const lobbyId = generateLobbyId();
@@ -32,7 +31,7 @@ module.exports = (io) => {
                 name: providedName,
                 creator: username,
                 players: [{ username, socketId: socket.id, joinedAt: new Date() }],
-                playersCount: 1,  // Добавляем поле playersCount
+                playersCount: 1,
                 isPrivate: isPrivate || false,
                 password: isPrivate ? password : null,
                 maxPlayers: 3,
@@ -46,10 +45,7 @@ module.exports = (io) => {
             
             console.log(`✅ Создано лобби ${lobbyId} (${providedName}) пользователем ${username}`);
             
-            // Возвращаем лобби с правильными данными
             callback({ success: true, lobbyId, lobby });
-            
-            // Обновляем список лобби для всех
             broadcastLobbiesList();
         });
 
@@ -61,7 +57,7 @@ module.exports = (io) => {
                     lobbyId: l.lobbyId,
                     name: l.name,
                     creator: l.creator,
-                    playersCount: l.players.length,  // Используем реальную длину массива
+                    playersCount: l.players.length,
                     maxPlayers: l.maxPlayers,
                     hasPassword: l.isPrivate
                 }));
@@ -72,8 +68,6 @@ module.exports = (io) => {
         // ================== ПРИСОЕДИНЕНИЕ К ЛОББИ ==================
         socket.on('joinLobby', (data, callback) => {
             const { lobbyId, username, password } = data;
-            
-            console.log(`📥 Попытка подключения к лобби ${lobbyId}, пользователь ${username}`);
             
             if (!username || !lobbyId) {
                 return callback({ success: false, error: 'Не указаны данные для входа' });
@@ -93,7 +87,6 @@ module.exports = (io) => {
                 return callback({ success: false, error: 'Лобби заполнено' });
             }
             
-            // Проверка пароля для приватных лобби
             if (lobby.isPrivate && lobby.password !== password) {
                 return callback({ success: false, error: 'Неверный пароль', needPassword: true });
             }
@@ -103,7 +96,7 @@ module.exports = (io) => {
             }
             
             lobby.players.push({ username, socketId: socket.id, joinedAt: new Date() });
-            lobby.playersCount = lobby.players.length;  // Обновляем счетчик
+            lobby.playersCount = lobby.players.length;
             socket.join(lobbyId);
             socket.currentLobby = lobbyId;
             socket.currentUsername = username;
@@ -121,7 +114,6 @@ module.exports = (io) => {
                 status: lobby.status
             }});
             
-            // Обновляем лобби для всех участников
             broadcastLobbyUpdate(lobbyId);
             broadcastLobbiesList();
         });
@@ -131,41 +123,21 @@ module.exports = (io) => {
             const { lobbyId, usernameToKick } = data;
             const lobby = lobbies.get(lobbyId);
             
-            if (!lobby) {
-                return callback({ success: false, error: 'Лобби не найдено' });
-            }
-            
-            if (lobby.creator !== socket.currentUsername) {
-                return callback({ success: false, error: 'Только создатель лобби может кикать игроков' });
-            }
+            if (!lobby) return callback({ success: false, error: 'Лобби не найдено' });
+            if (lobby.creator !== socket.currentUsername) return callback({ success: false, error: 'Только создатель может кикать' });
             
             const playerToKick = lobby.players.find(p => p.username === usernameToKick);
-            if (!playerToKick) {
-                return callback({ success: false, error: 'Игрок не найден' });
-            }
-            
-            if (usernameToKick === socket.currentUsername) {
-                return callback({ success: false, error: 'Нельзя кикнуть самого себя' });
-            }
+            if (!playerToKick) return callback({ success: false, error: 'Игрок не найден' });
+            if (usernameToKick === socket.currentUsername) return callback({ success: false, error: 'Нельзя кикнуть себя' });
             
             lobby.players = lobby.players.filter(p => p.username !== usernameToKick);
-            lobby.playersCount = lobby.players.length;  // Обновляем счетчик
+            lobby.playersCount = lobby.players.length;
             
-            io.to(playerToKick.socketId).emit('kickedFromLobby', { 
-                message: `Вас кикнули из лобби ${lobby.name}` 
-            });
+            io.to(playerToKick.socketId).emit('kickedFromLobby', { message: `Вас кикнули из лобби ${lobby.name}` });
             io.to(playerToKick.socketId).emit('redirectToLobbyList');
-            
-            // Обновляем сокет кикнутого
-            const kickedSocket = io.sockets.sockets.get(playerToKick.socketId);
-            if (kickedSocket) {
-                delete kickedSocket.currentLobby;
-            }
             
             broadcastLobbyUpdate(lobbyId);
             broadcastLobbiesList();
-            
-            console.log(`👢 ${usernameToKick} был кикнут из лобби ${lobbyId}`);
             callback({ success: true });
         });
 
@@ -174,7 +146,7 @@ module.exports = (io) => {
             const lobbyId = socket.currentLobby;
             const username = socket.currentUsername;
             
-            console.log(`🚪 Попытка выхода из лобби: ${username}, lobbyId: ${lobbyId}`);
+            console.log(`🚪 Выход из лобби: ${username}, lobbyId: ${lobbyId}`);
             
             if (!lobbyId) {
                 return callback?.({ success: false, error: 'Вы не в лобби' });
@@ -182,58 +154,37 @@ module.exports = (io) => {
             
             const lobby = lobbies.get(lobbyId);
             
-            if (lobby) {
-                const wasCreator = lobby.creator === username;
-                const wasInLobby = lobby.players.some(p => p.username === username);
-                
-                if (wasInLobby) {
-                    // Удаляем игрока из лобби
-                    lobby.players = lobby.players.filter(p => p.username !== username);
-                    lobby.playersCount = lobby.players.length;
-                    
-                    console.log(`👋 ${username} покинул лобби ${lobbyId}. Осталось игроков: ${lobby.players.length}`);
-                    
-                    if (lobby.players.length === 0) {
-                        // Если лобби пустое - удаляем
-                        lobbies.delete(lobbyId);
-                        console.log(`🗑️ Лобби ${lobbyId} удалено (пустое)`);
-                        // Уведомляем всех, что лобби исчезло
-                        broadcastLobbiesList();
-                    } else {
-                        // Если создатель ушел - назначаем нового
-                        if (wasCreator) {
-                            lobby.creator = lobby.players[0].username;
-                            console.log(`👑 Новый создатель лобби ${lobbyId}: ${lobby.creator}`);
-                        }
-                        
-                        // Обновляем лобби для оставшихся игроков
-                        broadcastLobbyUpdate(lobbyId);
-                        broadcastLobbiesList();
-                        
-                        // Отправляем оставшимся игрокам обновленный список игроков
-                        io.to(lobbyId).emit('lobbyUpdate', {
-                            lobbyId: lobby.lobbyId,
-                            name: lobby.name,
-                            creator: lobby.creator,
-                            players: lobby.players.map(p => ({ username: p.username })),
-                            playersCount: lobby.players.length,
-                            maxPlayers: lobby.maxPlayers,
-                            isPrivate: lobby.isPrivate,
-                            status: lobby.status
-                        });
-                    }
-                }
+            if (!lobby) {
+                delete socket.currentLobby;
+                delete socket.currentUsername;
+                return callback?.({ success: true });
             }
             
-            // ВАЖНО: Очищаем данные сокета
+            const game = activeGames.get(lobbyId);
+            if (game && lobby.status === 'playing') {
+                console.log(`🎮 Игра активна, ${username} не может покинуть лобби`);
+                return callback?.({ success: false, error: 'Нельзя покинуть игру' });
+            }
+            
+            lobby.players = lobby.players.filter(p => p.username !== username);
+            lobby.playersCount = lobby.players.length;
+            
+            if (lobby.players.length === 0) {
+                lobbies.delete(lobbyId);
+                console.log(`🗑️ Лобби ${lobbyId} удалено (пустое)`);
+            } else {
+                if (lobby.creator === username) {
+                    lobby.creator = lobby.players[0].username;
+                }
+                broadcastLobbyUpdate(lobbyId);
+            }
+            broadcastLobbiesList();
+            
             socket.leave(lobbyId);
             delete socket.currentLobby;
             delete socket.currentUsername;
             
-            // Отправляем игроку команду очистить локальное состояние
             socket.emit('lobbyLeft', { success: true });
-            
-            console.log(`✅ ${username} полностью вышел из лобби, состояние сокета очищено`);
             callback?.({ success: true });
         });
 
@@ -244,60 +195,65 @@ module.exports = (io) => {
             
             const lobby = lobbies.get(lobbyId);
             
-            if (!lobby) {
-                return callback({ success: false, error: 'Лобби не найдено' });
+            if (!lobby) return callback({ success: false, error: 'Лобби не найдено' });
+            if (lobby.creator !== socket.currentUsername) return callback({ success: false, error: 'Только создатель может начать' });
+            if (lobby.players.length < 3) return callback({ success: false, error: `Нужно 3 игрока (сейчас ${lobby.players.length})` });
+            
+            const unavailablePlayers = [];
+            for (const player of lobby.players) {
+                const playerSocket = io.sockets.sockets.get(player.socketId);
+                if (!playerSocket || !playerSocket.connected) {
+                    unavailablePlayers.push(player.username);
+                }
             }
             
-            if (lobby.creator !== socket.currentUsername) {
-                return callback({ success: false, error: 'Только создатель может начать игру' });
+            if (unavailablePlayers.length > 0) {
+                return callback({ success: false, error: `Игроки не в сети: ${unavailablePlayers.join(', ')}` });
             }
-            
-            if (lobby.players.length < 3) {
-                return callback({ success: false, error: `Нужно 3 игрока (сейчас ${lobby.players.length})` });
-            }
-            
-            lobby.status = 'playing';
             
             console.log(`🎮 ЗАПУСК ИГРЫ в лобби ${lobbyId}`);
             console.log(`Игроки: ${lobby.players.map(p => p.username).join(', ')}`);
             
-            // Получаем актуальные сокеты для всех игроков
+            lobby.status = 'playing';
+            
             const gamePlayers = [];
             for (const player of lobby.players) {
                 const playerSocket = io.sockets.sockets.get(player.socketId);
-                if (!playerSocket) {
-                    console.error(`❌ Сокет не найден для игрока ${player.username}`);
-                    return callback({ success: false, error: `Игрок ${player.username} отключился` });
-                }
-                gamePlayers.push(new Player(player.socketId, player.username, playerSocket));
+                const gamePlayer = new Player(player.socketId, player.username, playerSocket);
+                gamePlayers.push(gamePlayer);
             }
             
-            // Создаем игру
             const game = new Game(gamePlayers);
             activeGames.set(lobbyId, game);
             
-            // Уведомляем всех о начале игры и сохраняем lobbyId в сокет
+            console.log(`✅ Игра создана в лобби ${lobbyId}`);
+            
+            // Сначала отправляем gameStarted
             for (const player of lobby.players) {
                 const playerSocket = io.sockets.sockets.get(player.socketId);
                 if (playerSocket) {
                     playerSocket.currentLobby = lobbyId;
-                    playerSocket.emit('gameStarted', { lobbyId });
-                    console.log(`📨 Отправлено gameStarted для ${player.username}`);
+                    playerSocket.emit('gameStarted', { 
+                        lobbyId: lobbyId,
+                        username: player.username 
+                    });
+                    console.log(`📨 gameStarted отправлен для ${player.username}`);
                 }
             }
             
-            // Отправляем состояние игры через 1 секунду
+            // Запускаем анимацию через 2 секунды
             setTimeout(() => {
                 if (activeGames.has(lobbyId)) {
                     const currentGame = activeGames.get(lobbyId);
-                    currentGame.broadcast();
-                    console.log('📤 Начальное состояние игры отправлено');
+                    currentGame.startDealingAnimation();
                 }
-            }, 1000);
+            }, 15000);
             
             if (typeof callback === 'function') {
-    callback({ success: true });
-}
+                callback({ success: true, message: 'Игра запускается...' });
+            }
+            
+            broadcastLobbiesList();
         });
 
         // ================== ЗАПРОС СОСТОЯНИЯ ИГРЫ ==================
@@ -312,35 +268,26 @@ module.exports = (io) => {
                 lobbyId = data.lobbyId;
             }
             
-            console.log(`📞 requestGameState от ${username}, lobbyId = ${lobbyId || socket.currentLobby}`);
-            
             const finalLobbyId = lobbyId || socket.currentLobby;
             
-            if (!finalLobbyId) {
-                console.log(`❌ Нет lobbyId для запроса от ${username}`);
-                socket.emit('error', 'Вы не в игре. Пожалуйста, перезайдите в лобби.');
-                return;
-            }
+            console.log(`📞 Запрос состояния от ${username} для лобби ${finalLobbyId}`);
+            
+            if (!finalLobbyId) return;
             
             const game = activeGames.get(finalLobbyId);
-            if (!game) {
-                console.log(`⚠️ Игра не найдена для lobbyId ${finalLobbyId}`);
-                socket.emit('error', 'Игра не найдена');
-                return;
-            }
+            if (!game) return;
             
             const player = game.players.find(p => p.username === username);
             if (player) {
                 player.socket = socket;
                 player.id = socket.id;
                 socket.currentLobby = finalLobbyId;
+                socket.currentUsername = username;
+                socket.join(finalLobbyId);
+                
                 const state = game.getStateForPlayer(player.id);
-                console.log(`✅ Отправлено состояние для ${username}, карт: ${state.myHand.length}`);
                 socket.emit('gameState', state);
-            } else {
-                console.log(`❌ Игрок ${username} не найден в игре`);
-                console.log(`Игроки в игре: ${game.players.map(p => p.username).join(', ')}`);
-                socket.emit('error', 'Игрок не найден в игре');
+                console.log(`✅ Состояние отправлено для ${username}, карт: ${state.myHand.length}`);
             }
         });
 
@@ -352,8 +299,6 @@ module.exports = (io) => {
                 const result = game.attack(socket.id, data.cardIndex);
                 if (callback) callback(result);
                 game.broadcast();
-            } else if (callback) {
-                callback({ success: false, error: 'Игра не активна' });
             }
         });
         
@@ -364,8 +309,6 @@ module.exports = (io) => {
                 const result = game.defend(socket.id, data.cardIndex);
                 if (callback) callback(result);
                 game.broadcast();
-            } else if (callback) {
-                callback({ success: false, error: 'Игра не активна' });
             }
         });
         
@@ -376,8 +319,6 @@ module.exports = (io) => {
                 const result = game.endTurn(socket.id);
                 if (callback) callback(result);
                 game.broadcast();
-            } else if (callback) {
-                callback({ success: false, error: 'Игра не активна' });
             }
         });
         
@@ -388,8 +329,6 @@ module.exports = (io) => {
                 const result = game.takeCards(socket.id);
                 if (callback) callback(result);
                 game.broadcast();
-            } else if (callback) {
-                callback({ success: false, error: 'Игра не активна' });
             }
         });
 
@@ -400,8 +339,6 @@ module.exports = (io) => {
                 const result = game.additionalAttack(socket.id, data.cardIndex);
                 if (callback) callback(result);
                 game.broadcast();
-            } else if (callback) {
-                callback({ success: false, error: 'Игра не активна' });
             }
         });
 
@@ -412,8 +349,16 @@ module.exports = (io) => {
                 const result = game.endAdditionalAttack(socket.id);
                 if (callback) callback(result);
                 game.broadcast();
-            } else if (callback) {
-                callback({ success: false, error: 'Игра не активна' });
+            }
+        });
+
+        // ================== СИНХРОНИЗАЦИЯ АНИМАЦИИ РАЗДАЧИ ==================
+        socket.on('startDealingAnimation', (data) => {
+            const lobbyId = data.lobbyId || socket.currentLobby;
+            console.log(`🔄 Синхронизация анимации раздачи в лобби ${lobbyId}`);
+            
+            if (lobbyId) {
+                socket.to(lobbyId).emit('startDealingAnimation');
             }
         });
 
@@ -421,31 +366,74 @@ module.exports = (io) => {
         socket.on('disconnect', () => {
             console.log(`❌ Отключился: ${socket.id}`);
             
+            const disconnectedLobbyId = socket.currentLobby;
+            const disconnectedUsername = socket.currentUsername;
+            
+            if (disconnectedLobbyId) {
+                const game = activeGames.get(disconnectedLobbyId);
+                if (game) {
+                    const playerInGame = game.players.find(p => p.username === disconnectedUsername);
+                    if (playerInGame) {
+                        console.log(`⚠️ Игрок ${disconnectedUsername} отключился во время игры`);
+                        
+                        setTimeout(() => {
+                            const currentGame = activeGames.get(disconnectedLobbyId);
+                            if (currentGame) {
+                                const player = currentGame.players.find(p => p.username === disconnectedUsername);
+                                if (player && player.socket.id === socket.id) {
+                                    console.log(`⏰ Время переподключения истекло для ${disconnectedUsername}`);
+                                    
+                                    currentGame.players.forEach(p => {
+                                        if (p.socket && p.socket.connected && p.username !== disconnectedUsername) {
+                                            p.socket.emit('error', `Игрок ${disconnectedUsername} отключился`);
+                                            p.socket.emit('gameOver', { 
+                                                winner: 'Игра прервана',
+                                                disconnectedPlayer: disconnectedUsername 
+                                            });
+                                        }
+                                    });
+                                    
+                                    activeGames.delete(disconnectedLobbyId);
+                                    
+                                    const lobby = lobbies.get(disconnectedLobbyId);
+                                    if (lobby) {
+                                        lobby.status = 'waiting';
+                                        lobby.players = lobby.players.filter(p => p.username !== disconnectedUsername);
+                                        lobby.playersCount = lobby.players.length;
+                                        
+                                        if (lobby.players.length > 0) {
+                                            lobby.creator = lobby.players[0].username;
+                                        } else {
+                                            lobbies.delete(disconnectedLobbyId);
+                                        }
+                                        broadcastLobbiesList();
+                                    }
+                                }
+                            }
+                        }, 30000);
+                    }
+                }
+            }
+            
             for (const [lobbyId, lobby] of lobbies.entries()) {
-                const playerIndex = lobby.players.findIndex(p => p.socketId === socket.id);
-                
-                if (playerIndex !== -1) {
-                    if (lobby.status === 'waiting') {
-                        const disconnectedPlayer = lobby.players[playerIndex];
+                if (lobby.status === 'waiting') {
+                    const playerIndex = lobby.players.findIndex(p => p.socketId === socket.id);
+                    if (playerIndex !== -1) {
                         lobby.players.splice(playerIndex, 1);
-                        lobby.playersCount = lobby.players.length;  // Обновляем счетчик
+                        lobby.playersCount = lobby.players.length;
                         
                         if (lobby.players.length === 0) {
                             lobbies.delete(lobbyId);
                         } else {
-                            if (lobby.creator === disconnectedPlayer.username) {
-                                lobby.creator = lobby.players[0].username;
-                            }
                             broadcastLobbyUpdate(lobbyId);
                         }
                         broadcastLobbiesList();
+                        break;
                     }
-                    break;
                 }
             }
         });
         
-        // ================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ==================
         function generateLobbyId() {
             return Math.random().toString(36).substring(2, 8).toUpperCase();
         }

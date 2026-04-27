@@ -9,16 +9,35 @@ let gameReady = false;
 let stateRequestCount = 0;
 let currentGameState = null;
 let currentLobbyId = null;
+let dealingInProgress = false;
+let dealerIndex = null;
+let animationOverlay = null;
 
 function initGameUI() {
     console.log('initGameUI started');
     
+    const urlParams = new URLSearchParams(window.location.search);
+    const lobbyId = urlParams.get('lobbyId');
+    
+    if (!lobbyId) {
+        console.error('Нет lobbyId в URL!');
+        const savedLobbyId = sessionStorage.getItem('currentLobbyId');
+        if (savedLobbyId) {
+            console.log('Найден lobbyId в sessionStorage, перенаправляем...');
+            window.location.href = `/game.html?lobbyId=${savedLobbyId}`;
+            return;
+        }
+        alert('Ошибка: игра не найдена. Возврат в лобби...');
+        window.location.href = '/lobby.html';
+        return;
+    }
+    
     playerName = sessionStorage.getItem('playerName');
     console.log('Player name from session:', playerName);
+    console.log('LobbyId from URL:', lobbyId);
     
-    const urlParams = new URLSearchParams(window.location.search);
-    currentLobbyId = urlParams.get('lobbyId') || sessionStorage.getItem('currentLobbyId');
-    console.log('LobbyId:', currentLobbyId);
+    currentLobbyId = lobbyId;
+    sessionStorage.setItem('currentLobbyId', lobbyId);
     
     if (!playerName) {
         console.error('Нет имени игрока!');
@@ -29,90 +48,612 @@ function initGameUI() {
     
     if (typeof io === 'undefined') {
         console.error('socket.io не загружен!');
-        setTimeout(initGameUI, 500);
+        const script = document.createElement('script');
+        script.src = '/socket.io/socket.io.js';
+        script.onload = () => {
+            console.log('socket.io загружен динамически');
+            initGameUI();
+        };
+        script.onerror = () => {
+            console.error('Не удалось загрузить socket.io');
+            alert('Ошибка загрузки. Обновите страницу.');
+        };
+        document.head.appendChild(script);
         return;
     }
     
     window.addEventListener('beforeunload', () => {
-        if (socket && socket.connected) {
-            socket.emit('leaveLobby', {});
+        console.log('Страница закрывается, игра продолжается на сервере');
+    });
+    
+    if (socket && socket.connected) {
+        console.log('Сокет уже подключен, запрашиваем состояние игры');
+        socket.currentLobby = currentLobbyId;
+        socket.currentUsername = playerName;
+        requestGameState();
+        return;
+    }
+    
+    socket = io({
+        reconnection: true,
+        reconnectionAttempts: 20,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 20000
+    });
+    
+    socket.on('connect', () => {
+        console.log('✅ Socket connected in gameUI, id:', socket.id);
+        
+        socket.currentLobby = currentLobbyId;
+        socket.currentUsername = playerName;
+        
+        gameReady = true;
+        
+        requestGameState();
+    });
+    
+    socket.on('gameStarted', (data) => {
+        console.log('🎮 Получен сигнал gameStarted, lobbyId:', data.lobbyId);
+        currentLobbyId = data.lobbyId;
+        sessionStorage.setItem('currentLobbyId', data.lobbyId);
+        socket.currentLobby = data.lobbyId;
+    });
+    
+    socket.on('dealAnimation', (data) => {
+        console.log('🎴 Получена команда на анимацию раздачи:', data);
+        startDealingAnimation(data);
+    });
+    
+    socket.on('gameState', (state) => {
+        console.log('📦 Game state received!', state);
+        currentGameState = state;
+        updateGameState(state);
+    });
+    
+    socket.on('gameOver', (data) => {
+        console.log('🏁 Game over:', data);
+        let message = '';
+        const isWinner = data.isWinner || (data.winner && data.winner.includes(playerName));
+        
+        if (data.disconnectedPlayer) {
+            message = `Игра прервана!\nИгрок ${data.disconnectedPlayer} отключился.`;
+        } else if (isWinner) {
+            message = `🏆 ПОБЕДА! 🏆\n${data.winner}`;
+        } else if (data.winner === 'Ничья - все победители!') {
+            message = `🤝 НИЧЬЯ! 🤝\n${data.winner}`;
+        } else {
+            message = `😢 Вы проиграли!\nПобедитель: ${data.winner}`;
+        }
+        
+        const statusBar = document.getElementById('statusBar');
+        if (statusBar) {
+            statusBar.innerHTML = message.replace(/\n/g, '<br>');
+            statusBar.style.background = 'linear-gradient(135deg, #d4af37, #b8860b)';
+            statusBar.style.color = '#1a0f08';
+        }
+        
+        setTimeout(() => {
+            window.location.href = '/lobby.html';
+        }, 3000);
+    });
+    
+    socket.on('error', (error) => {
+        console.error('❌ Socket error:', error);
+        const statusBar = document.getElementById('statusBar');
+        if (statusBar) {
+            statusBar.innerHTML = `⚠️ ${error}`;
+            statusBar.style.background = 'rgba(139, 0, 0, 0.9)';
         }
     });
     
-    if (!socket) {
-        socket = io({
-            reconnection: true,
-            reconnectionAttempts: 10,
-            reconnectionDelay: 1000
-        });
+    socket.on('disconnect', (reason) => {
+        console.log('🔌 Socket disconnected in gameUI. Reason:', reason);
+        gameReady = false;
+        const statusBar = document.getElementById('statusBar');
+        if (statusBar) {
+            statusBar.innerHTML = '⚠️ Потеря соединения с сервером. Переподключение...';
+            statusBar.style.background = 'rgba(139, 0, 0, 0.7)';
+        }
+    });
+    
+    socket.on('reconnect', (attemptNumber) => {
+        console.log('🔄 Переподключение к серверу успешно (попытка ' + attemptNumber + ')');
+        gameReady = true;
         
-        socket.on('connect', () => {
-            console.log('✅ Socket connected in gameUI, id:', socket.id);
-            
-            if (!currentLobbyId) {
-                console.error('❌ Нет lobbyId!');
-                alert('Ошибка: не удалось определить лобби. Перенаправление...');
-                window.location.href = '/lobby.html';
+        const statusBar = document.getElementById('statusBar');
+        if (statusBar) {
+            statusBar.innerHTML = '✅ Соединение восстановлено!';
+            statusBar.style.background = 'rgba(10, 6, 4, 0.92)';
+        }
+        
+        socket.currentLobby = currentLobbyId;
+        socket.currentUsername = playerName;
+        
+        requestGameState();
+    });
+    
+    socket.on('reconnect_attempt', (attemptNumber) => {
+        console.log('🔄 Попытка переподключения #' + attemptNumber);
+        const statusBar = document.getElementById('statusBar');
+        if (statusBar) {
+            statusBar.innerHTML = `🔄 Переподключение... (попытка ${attemptNumber})`;
+        }
+    });
+    
+    socket.on('reconnect_error', (error) => {
+        console.error('❌ Ошибка переподключения:', error);
+    });
+    
+    socket.on('reconnect_failed', () => {
+        console.error('❌ Не удалось переподключиться к серверу');
+        const statusBar = document.getElementById('statusBar');
+        if (statusBar) {
+            statusBar.innerHTML = '❌ Не удалось подключиться к серверу. Обновите страницу.';
+        }
+    });
+    
+    function requestGameState() {
+        stateRequestCount = 0;
+        
+        const doRequest = () => {
+            // Прекращаем запросы если уже получили состояние
+            if (currentGameState && currentGameState.myHand && currentGameState.myHand.length > 0) {
+                console.log('✅ Состояние игры уже получено, запросы прекращены');
                 return;
             }
             
-            socket.currentLobby = currentLobbyId;
-            socket.currentUsername = playerName;
-            sessionStorage.setItem('currentLobbyId', currentLobbyId);
-            
-            gameReady = true;
-            stateRequestCount = 0;
-            
-            const requestState = () => {
-                if (socket && socket.connected) {
-                    console.log(`🔄 Запрос состояния игры (попытка ${stateRequestCount + 1}) для`, playerName);
-                    socket.emit('requestGameState', { username: playerName, lobbyId: socket.currentLobby });
-                    stateRequestCount++;
-                    
-                    if (stateRequestCount < 5) {
-                        setTimeout(requestState, 1000);
+            if (socket && socket.connected) {
+                console.log(`🔄 Запрос состояния игры (попытка ${stateRequestCount + 1}) для ${playerName}`);
+                socket.emit('requestGameState', { 
+                    username: playerName, 
+                    lobbyId: currentLobbyId 
+                });
+                stateRequestCount++;
+                
+                if (stateRequestCount < 15) {
+                    setTimeout(doRequest, 1500);
+                } else {
+                    console.log('❌ Не удалось получить состояние игры после 15 попыток');
+                    const statusBar = document.getElementById('statusBar');
+                    if (statusBar) {
+                        statusBar.innerHTML = '❌ Не удалось загрузить игру. Возврат в лобби...';
                     }
+                    setTimeout(() => {
+                        window.location.href = '/lobby.html';
+                    }, 2000);
                 }
-            };
-            
-            requestState();
-        });
-        
-        socket.on('gameState', (state) => {
-            console.log('📦 Game state received!', state);
-            currentGameState = state;
-            updateGameState(state);
-        });
-        
-        socket.on('gameOver', (data) => {
-            console.log('🏁 Game over:', data);
-            const isWinner = data.isWinner || (data.winner && data.winner.includes(playerName));
-            if (isWinner) {
-                alert(`🏆 ПОБЕДА! 🏆\n${data.winner}`);
-            } else if (data.winner === 'Ничья - все победители!') {
-                alert(`🤝 НИЧЬЯ! 🤝\n${data.winner}`);
-            } else {
-                alert(`😢 Вы проиграли!\nПобедитель: ${data.winner}`);
             }
-            setTimeout(() => {
-                window.location.href = '/lobby.html';
-            }, 3000);
-        });
+        };
         
-        socket.on('error', (error) => {
-            console.error('❌ Socket error:', error);
-            alert(error);
-        });
-        
-        socket.on('disconnect', () => {
-            console.log('🔌 Socket disconnected in gameUI');
-            gameReady = false;
-            const statusBar = document.getElementById('statusBar');
-            if (statusBar) {
-                statusBar.innerHTML = '⚠️ Потеря соединения с сервером. Переподключение...';
-            }
-        });
+        setTimeout(doRequest, 1000);
     }
+}
+
+function startDealingAnimation(data) {
+    if (dealingInProgress) return;
+    dealingInProgress = true;
+    
+    const { players, dealerIndex: dealer } = data;
+    dealerIndex = dealer;
+    
+    console.log('🎴 Запуск анимации раздачи. Дилер:', players[dealerIndex]?.username);
+    
+    // Очищаем стол и руки перед анимацией
+    const tableZone = document.getElementById('tableZone');
+    const myHandEl = document.getElementById('myHand');
+    const playerTop = document.getElementById('playerTop');
+    const playerRight = document.getElementById('playerRight');
+    
+    if (tableZone) tableZone.innerHTML = '';
+    if (myHandEl) myHandEl.innerHTML = '';
+    
+    // Обновляем информацию об игроках
+    if (playerTop) {
+        const topPlayer = players.find((_, i) => i !== dealerIndex && i === (dealerIndex + 1) % 3);
+        if (topPlayer || players[0]) {
+            const p = topPlayer || players[0];
+            playerTop.innerHTML = `
+                <div class="badge-info">
+                    <div class="player-name">${escapeHtml(p.username)}</div>
+                    <div class="player-cards">🎴 0 карт</div>
+                </div>
+            `;
+        }
+    }
+    
+    if (playerRight) {
+        const rightPlayer = players.find((_, i) => i !== dealerIndex && i === (dealerIndex + 2) % 3);
+        if (rightPlayer || players[1]) {
+            const p = rightPlayer || players[1];
+            playerRight.innerHTML = `
+                <div class="badge-info">
+                    <div class="player-name">${escapeHtml(p.username)}</div>
+                    <div class="player-cards">🎴 0 карт</div>
+                </div>
+            `;
+        }
+    }
+    
+    // Создаем оверлей с колодой
+    const overlay = document.createElement('div');
+    overlay.id = 'dealAnimationOverlay';
+    overlay.className = 'deal-overlay';
+    overlay.innerHTML = `
+        <div class="deal-container">
+            <div class="dealer-info">
+                <span class="dealer-label">🎩 Дилер:</span>
+                <span class="dealer-name">${escapeHtml(players[dealerIndex]?.username || 'Случайный игрок')}</span>
+            </div>
+            <div class="deck-wrapper" id="deckWrapper">
+                <div class="deck-stack" id="deckStack">
+                    ${Array(36).fill(0).map((_, i) => `
+                        <div class="deck-card-animated" style="z-index: ${i}; transform: translateY(${-i * 0.3}px) translateX(${i * 0.5}px);">
+                            <div class="card-back-pattern">
+                                <img src="/cards/back.png" 
+                                     alt="Карта" 
+                                     class="card-back-image"
+                                     onerror="this.style.display='none'; this.parentElement.classList.add('card-back-fallback');" />
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+                <div class="deck-glow"></div>
+            </div>
+            <div class="deal-instruction" id="dealInstruction">
+                ${playerName === players[dealerIndex]?.username 
+                    ? '👆 НАЖМИТЕ НА КОЛОДУ ДЛЯ РАЗДАЧИ' 
+                    : `⏳ Ожидание раздачи от ${players[dealerIndex]?.username || 'дилера'}...`}
+            </div>
+        </div>
+    `;
+    
+    // Добавляем стили для анимации
+    if (!document.getElementById('dealAnimStyles')) {
+        const style = document.createElement('style');
+        style.id = 'dealAnimStyles';
+        style.textContent = `
+            .deal-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.85);
+                backdrop-filter: blur(10px);
+                z-index: 5000;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                animation: fadeIn 0.5s ease;
+            }
+            
+            .deal-container {
+                text-align: center;
+            }
+            
+            .dealer-info {
+                margin-bottom: 30px;
+                color: #faf4e0;
+                font-family: 'Oswald', sans-serif;
+                font-size: 24px;
+                letter-spacing: 2px;
+                text-shadow: 0 0 20px rgba(212, 175, 55, 0.5);
+            }
+            
+            .dealer-label {
+                color: #c9af7b;
+            }
+            
+            .dealer-name {
+                color: #d4af37;
+                font-weight: bold;
+                font-size: 28px;
+                text-shadow: 0 0 30px rgba(212, 175, 55, 0.8);
+            }
+            
+            .deck-wrapper {
+                position: relative;
+                display: inline-block;
+                transition: transform 0.3s ease;
+            }
+            
+            .deck-wrapper.clickable {
+                cursor: pointer;
+                animation: glowPulse 2s ease-in-out infinite;
+            }
+            
+            .deck-wrapper.clickable:hover {
+                transform: scale(1.05);
+            }
+            
+            .deck-wrapper.clickable:hover .deck-glow {
+                opacity: 1;
+            }
+            
+            .deck-stack {
+                position: relative;
+                width: 160px;
+                height: 224px;
+                margin: 0 auto;
+            }
+            
+            .deck-card-animated {
+                position: absolute;
+                width: 100%;
+                height: 100%;
+                border-radius: 14px;
+                transition: all 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+            }
+            
+            .card-back-pattern {
+                width: 100%;
+                height: 100%;
+                border-radius: 14px;
+                border: 2px solid #d4af37;
+                box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(212, 175, 55, 0.4);
+                overflow: hidden;
+                position: relative;
+                background: linear-gradient(135deg, #1a237e 0%, #0d47a1 50%, #1565c0 100%);
+            }
+            
+            .card-back-pattern.card-back-fallback::after {
+                content: "🂠";
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                font-size: 60px;
+                color: rgba(212, 175, 55, 0.6);
+                text-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+            }
+            
+            .card-back-pattern.card-back-fallback::before {
+                content: "";
+                position: absolute;
+                top: 10px;
+                left: 10px;
+                right: 10px;
+                bottom: 10px;
+                border: 2px solid rgba(212, 175, 55, 0.3);
+                border-radius: 8px;
+            }
+            
+            .card-back-image {
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+                border-radius: 14px;
+                display: block;
+            }
+            
+            .deck-glow {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                width: 220px;
+                height: 300px;
+                background: radial-gradient(ellipse, rgba(212, 175, 55, 0.25) 0%, transparent 70%);
+                border-radius: 50%;
+                opacity: 0;
+                transition: opacity 0.5s ease;
+                pointer-events: none;
+            }
+            
+            .deal-instruction {
+                margin-top: 35px;
+                color: #d4af37;
+                font-family: 'Oswald', sans-serif;
+                font-size: 22px;
+                letter-spacing: 2px;
+                text-shadow: 0 0 20px rgba(212, 175, 55, 0.6);
+                animation: pulse 2s ease-in-out infinite;
+            }
+            
+            @keyframes dealCardFly {
+                0% { 
+                    transform: translate(0, 0) rotate(0deg);
+                    opacity: 1;
+                }
+                80% {
+                    opacity: 0.7;
+                }
+                100% { 
+                    transform: translate(var(--fly-x), var(--fly-y)) rotate(var(--fly-rot)) scale(0.7);
+                    opacity: 0;
+                }
+            }
+            
+            @keyframes fadeIn {
+                from { opacity: 0; }
+                to { opacity: 1; }
+            }
+            
+            @keyframes glowPulse {
+                0%, 100% { filter: drop-shadow(0 0 20px rgba(212, 175, 55, 0.3)); }
+                50% { filter: drop-shadow(0 0 45px rgba(212, 175, 55, 0.7)); }
+            }
+            
+            @keyframes pulse {
+                0%, 100% { opacity: 1; transform: scale(1); }
+                50% { opacity: 0.6; transform: scale(1.05); }
+            }
+            
+            @keyframes particleBurst {
+                0% { transform: translate(0, 0) scale(1); opacity: 1; }
+                100% { transform: translate(var(--px), var(--py)) scale(0); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    document.body.appendChild(overlay);
+    animationOverlay = overlay;
+    
+    const deckWrapper = document.getElementById('deckWrapper');
+    const isDealer = playerName === players[dealerIndex]?.username;
+    
+    if (isDealer) {
+        deckWrapper.classList.add('clickable');
+        deckWrapper.addEventListener('click', () => {
+            handleDeckClick(players, dealerIndex, overlay);
+        });
+    } else {
+        deckWrapper.style.opacity = '0.7';
+        deckWrapper.style.pointerEvents = 'none';
+    }
+    
+    // Слушаем событие от сервера для синхронизации
+    socket.once('startDealingAnimation', () => {
+        animateCardDistribution(players, dealerIndex, overlay);
+    });
+}
+
+function handleDeckClick(players, dealerIndex, overlay) {
+    const deckWrapper = document.getElementById('deckWrapper');
+    if (deckWrapper) {
+        deckWrapper.classList.remove('clickable');
+        deckWrapper.style.pointerEvents = 'none';
+    }
+    
+    // Отправляем событие на сервер для синхронизации
+    socket.emit('startDealingAnimation', { lobbyId: currentLobbyId });
+    
+    // Запускаем анимацию локально
+    animateCardDistribution(players, dealerIndex, overlay);
+}
+
+function animateCardDistribution(players, dealerIndex, overlay) {
+    console.log('🃏 Запуск анимации раздачи карт');
+    
+    // Скрываем инструкцию
+    const instruction = document.getElementById('dealInstruction');
+    if (instruction) {
+        instruction.textContent = '🃏 РАЗДАЧА КАРТ...';
+        instruction.style.animation = 'none';
+        instruction.style.opacity = '0.8';
+    }
+    
+    // Определяем позиции для раздачи
+    const positions = {
+        top: { x: window.innerWidth / 2, y: 130 },
+        right: { x: window.innerWidth - 180, y: window.innerHeight / 2 },
+        bottom: { x: window.innerWidth / 2, y: window.innerHeight - 180 }
+    };
+    
+    // Определяем, какой игрок где находится
+    const playerPositions = {};
+    const otherIndices = [0, 1, 2].filter(i => i !== dealerIndex);
+    
+    // Дилер всегда снизу
+    playerPositions[dealerIndex] = { ...positions.bottom, name: players[dealerIndex].username };
+    
+    // Остальные игроки
+    if (otherIndices.length >= 1) {
+        playerPositions[otherIndices[0]] = { ...positions.top, name: players[otherIndices[0]].username };
+    }
+    if (otherIndices.length >= 2) {
+        playerPositions[otherIndices[1]] = { ...positions.right, name: players[otherIndices[1]].username };
+    }
+    
+    const deckStack = document.getElementById('deckStack');
+    const deckCards = deckStack.querySelectorAll('.deck-card-animated');
+    const deckCenterX = window.innerWidth / 2;
+    const deckCenterY = window.innerHeight / 2;
+    
+    // Анимируем каждую карту
+    deckCards.forEach((card, index) => {
+        setTimeout(() => {
+            const playerIndex = Math.floor(index / 12) % 3;
+            const target = playerPositions[playerIndex];
+            
+            if (target) {
+                const spreadX = (Math.random() * 60 - 30);
+                const spreadY = (Math.random() * 60 - 30);
+                const flyX = target.x - deckCenterX + spreadX;
+                const flyY = target.y - deckCenterY + spreadY;
+                const flyRot = Math.random() * 40 - 20;
+                
+                card.style.setProperty('--fly-x', `${flyX}px`);
+                card.style.setProperty('--fly-y', `${flyY}px`);
+                card.style.setProperty('--fly-rot', `${flyRot}deg`);
+                card.style.animation = `dealCardFly 0.6s ease-in forwards`;
+                card.style.animationDelay = `${index * 15}ms`;
+                
+                // Частицы при приземлении
+                if (index % 3 === 0) {
+                    setTimeout(() => {
+                        createDealParticles(target.x, target.y);
+                    }, 400 + index * 5);
+                }
+            }
+        }, index * 20);
+    });
+    
+    // Завершаем анимацию
+    const totalCards = 36;
+    setTimeout(() => {
+        finishDealingAnimation(overlay);
+    }, totalCards * 20 + 1500);
+}
+
+function createDealParticles(x, y) {
+    for (let i = 0; i < 6; i++) {
+        const particle = document.createElement('div');
+        particle.style.cssText = `
+            position: fixed;
+            left: ${x}px;
+            top: ${y}px;
+            width: 6px;
+            height: 6px;
+            background: radial-gradient(circle, #ffd700, #d4af37);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 6000;
+            box-shadow: 0 0 10px rgba(212, 175, 55, 0.8);
+        `;
+        
+        const angle = Math.random() * Math.PI * 2;
+        const distance = Math.random() * 60 + 20;
+        particle.style.setProperty('--px', `${Math.cos(angle) * distance}px`);
+        particle.style.setProperty('--py', `${Math.sin(angle) * distance}px`);
+        particle.style.animation = 'particleBurst 0.5s ease-out forwards';
+        
+        document.body.appendChild(particle);
+        
+        setTimeout(() => particle.remove(), 500);
+    }
+}
+
+function finishDealingAnimation(overlay) {
+    console.log('✨ Анимация раздачи завершена');
+    
+    overlay.style.transition = 'opacity 0.5s ease';
+    overlay.style.opacity = '0';
+    
+    setTimeout(() => {
+        if (overlay.parentNode) {
+            overlay.remove();
+        }
+        dealingInProgress = false;
+        animationOverlay = null;
+        
+        // Показываем сообщение
+        const statusBar = document.getElementById('statusBar');
+        if (statusBar) {
+            statusBar.innerHTML = '♠️ КАРТЫ РОЗДАНЫ! ♠️<br><span style="font-size:12px">Игра начинается</span>';
+            statusBar.style.background = 'linear-gradient(135deg, rgba(212, 175, 55, 0.95), rgba(184, 134, 11, 0.95))';
+            statusBar.style.color = '#1a0f08';
+            statusBar.style.borderLeft = '6px solid #ffd700';
+            
+            setTimeout(() => {
+                statusBar.style.background = 'rgba(10, 6, 4, 0.92)';
+                statusBar.style.color = '#f5e2b0';
+                statusBar.style.borderLeft = '6px solid #d4af37';
+            }, 2500);
+        }
+    }, 500);
 }
 
 function updateGameState(state) {
@@ -431,18 +972,12 @@ function renderActionButtons(state) {
 }
 
 function exitGame() {
-    if (confirm('Выйти из игры?')) {
-        if (socket && socket.connected) {
-            socket.emit('leaveLobby', {}, () => {
-                window.location.href = '/lobby.html';
-            });
-        } else {
-            window.location.href = '/lobby.html';
-        }
+    if (confirm('Выйти из игры? Вы вернетесь в лобби.')) {
+        window.location.href = '/lobby.html';
     }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('DOM загружен, инициализация GameUI (Luxury Casino)');
+    console.log('DOM загружен, инициализация GameUI (Luxury Casino) с анимацией раздачи');
     initGameUI();
 });

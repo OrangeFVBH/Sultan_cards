@@ -57,3 +57,11 @@ server.listen(PORT, () => {
     }
     console.log('Откройте 3 вкладки браузера для игры');
 });
+
+server.on('connection', (socket) => {
+    socket.setTimeout(60000); // 60 секунд таймаут
+    socket.on('timeout', () => {
+        console.log('Socket timeout');
+        socket.destroy();
+    });
+});

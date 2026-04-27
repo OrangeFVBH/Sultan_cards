@@ -588,9 +588,27 @@
                 renderCurrentLobby(lobby);
             });
             socket.on('gameStarted', (data) => {
+                console.log('🎮 Игра началась! Перенаправление на game.html...', data);
+                
+                // Сохраняем данные в sessionStorage
                 sessionStorage.setItem('playerName', currentUser);
                 sessionStorage.setItem('currentLobbyId', data.lobbyId);
-                setTimeout(() => { window.location.href = `/game.html?lobbyId=${data.lobbyId}`; }, 500);
+                
+                // Очищаем интервал обновления лобби
+                if (refreshInterval) {
+                    clearInterval(refreshInterval);
+                    refreshInterval = null;
+                }
+                
+                // Отключаем текущий сокет от комнаты лобби (но не отключаем сам сокет)
+                if (socket) {
+                    socket.off('lobbiesList');
+                    socket.off('lobbyUpdate');
+                    socket.off('lobbyLeft');
+                }
+                
+                // Перенаправляем на страницу игры
+                window.location.href = `/game.html?lobbyId=${data.lobbyId}`;
             });
             socket.on('kickedFromLobby', (data) => {
                 alert(data.message);
@@ -706,9 +724,14 @@
                 alert('Только создатель может начать игру');
                 return;
             }
+            
+            // Сохраняем lobbyId перед запуском
+            sessionStorage.setItem('currentLobbyId', currentLobby.lobbyId);
+            
             socket.emit('startGame', {}, (response) => {
                 if (response && response.success) {
-                    console.log('Запрос на запуск игры принят');
+                    console.log('Игра запущена, ожидаем перехода...');
+                    // Не делаем leaveLobby - сервер сам обработает
                 } else if (response && response.error) {
                     alert('Ошибка запуска: ' + response.error);
                 }
