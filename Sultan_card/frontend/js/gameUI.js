@@ -13,6 +13,74 @@ let dealingInProgress = false;
 let dealerIndex = null;
 let animationOverlay = null;
 
+// ================== ЗАГРУЗОЧНЫЙ ЭКРАН ==================
+function showLoadingScreen() {
+    const loadingOverlay = document.createElement('div');
+    loadingOverlay.id = 'loadingOverlay';
+    loadingOverlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: radial-gradient(ellipse at 30% 20%, #2a1508 0%, #0a0502 100%);
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        font-family: 'Oswald', sans-serif;
+    `;
+    
+    loadingOverlay.innerHTML = `
+        <div style="font-size: 60px; margin-bottom: 20px; animation: cardSpin 2s ease-in-out infinite;">🎴</div>
+        <div style="color: #d4af37; font-size: 28px; letter-spacing: 3px; margin-bottom: 30px; text-shadow: 0 0 20px rgba(212,175,55,0.5);">SULTAN CASINO</div>
+        <div style="width: 250px; height: 4px; background: rgba(212, 175, 55, 0.2); border-radius: 2px; overflow: hidden; box-shadow: 0 0 10px rgba(212,175,55,0.3);">
+            <div id="loadingBar" style="width: 0%; height: 100%; background: linear-gradient(90deg, #b8860b, #d4af37, #ffd700); border-radius: 2px; transition: width 0.5s ease;"></div>
+        </div>
+        <div id="loadingText" style="color: #c9af7b; margin-top: 15px; font-size: 16px; letter-spacing: 1px;">Подключение к серверу...</div>
+    `;
+    
+    // Добавляем стиль анимации
+    if (!document.getElementById('loadingStyles')) {
+        const style = document.createElement('style');
+        style.id = 'loadingStyles';
+        style.textContent = `
+            @keyframes cardSpin {
+                0%, 100% { transform: rotateY(0deg); }
+                50% { transform: rotateY(180deg); }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    document.body.appendChild(loadingOverlay);
+}
+
+function updateLoadingProgress(percent, text) {
+    const loadingBar = document.getElementById('loadingBar');
+    const loadingText = document.getElementById('loadingText');
+    if (loadingBar) loadingBar.style.width = percent + '%';
+    if (loadingText) loadingText.textContent = text;
+}
+
+function hideLoadingScreen() {
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    if (loadingOverlay) {
+        loadingOverlay.style.transition = 'opacity 0.5s ease';
+        loadingOverlay.style.opacity = '0';
+        setTimeout(() => {
+            if (loadingOverlay.parentNode) {
+                loadingOverlay.remove();
+            }
+        }, 500);
+    }
+}
+
+// Показываем загрузку сразу
+showLoadingScreen();
+updateLoadingProgress(10, 'Подключение к серверу...');
+
 function initGameUI() {
     console.log('initGameUI started');
     
@@ -27,8 +95,10 @@ function initGameUI() {
             window.location.href = `/game.html?lobbyId=${savedLobbyId}`;
             return;
         }
-        alert('Ошибка: игра не найдена. Возврат в лобби...');
-        window.location.href = '/lobby.html';
+        updateLoadingProgress(100, 'Ошибка: игра не найдена');
+        setTimeout(() => {
+            window.location.href = '/lobby.html';
+        }, 2000);
         return;
     }
     
@@ -41,10 +111,14 @@ function initGameUI() {
     
     if (!playerName) {
         console.error('Нет имени игрока!');
-        alert('Ошибка: не удалось определить игрока. Перенаправление в лобби...');
-        window.location.href = '/lobby.html';
+        updateLoadingProgress(100, 'Ошибка: игрок не определен');
+        setTimeout(() => {
+            window.location.href = '/lobby.html';
+        }, 2000);
         return;
     }
+    
+    updateLoadingProgress(20, 'Загрузка модулей...');
     
     if (typeof io === 'undefined') {
         console.error('socket.io не загружен!');
@@ -55,21 +129,24 @@ function initGameUI() {
             initGameUI();
         };
         script.onerror = () => {
-            console.error('Не удалось загрузить socket.io');
-            alert('Ошибка загрузки. Обновите страницу.');
+            updateLoadingProgress(100, 'Ошибка загрузки socket.io');
+            setTimeout(() => window.location.href = '/lobby.html', 2000);
         };
         document.head.appendChild(script);
         return;
     }
     
+    updateLoadingProgress(30, 'Подключение к игровому серверу...');
+    
     window.addEventListener('beforeunload', () => {
-        console.log('Страница закрывается, игра продолжается на сервере');
+        console.log('Страница закрывается');
     });
     
     if (socket && socket.connected) {
-        console.log('Сокет уже подключен, запрашиваем состояние игры');
+        console.log('Сокет уже подключен');
         socket.currentLobby = currentLobbyId;
         socket.currentUsername = playerName;
+        updateLoadingProgress(40, 'Восстановление соединения...');
         requestGameState();
         return;
     }
@@ -89,6 +166,7 @@ function initGameUI() {
         socket.currentUsername = playerName;
         
         gameReady = true;
+        updateLoadingProgress(40, 'Соединение установлено. Ожидание игры...');
         
         requestGameState();
     });
@@ -98,16 +176,19 @@ function initGameUI() {
         currentLobbyId = data.lobbyId;
         sessionStorage.setItem('currentLobbyId', data.lobbyId);
         socket.currentLobby = data.lobbyId;
+        updateLoadingProgress(60, 'Игра запущена! Ожидание раздачи...');
     });
     
     socket.on('dealAnimation', (data) => {
         console.log('🎴 Получена команда на анимацию раздачи:', data);
+        hideLoadingScreen();
         startDealingAnimation(data);
     });
     
     socket.on('gameState', (state) => {
         console.log('📦 Game state received!', state);
-        currentGameState = state;
+        // Всегда скрываем загрузку при получении gameState
+        hideLoadingScreen();
         updateGameState(state);
     });
     
@@ -140,6 +221,7 @@ function initGameUI() {
     
     socket.on('error', (error) => {
         console.error('❌ Socket error:', error);
+        hideLoadingScreen();
         const statusBar = document.getElementById('statusBar');
         if (statusBar) {
             statusBar.innerHTML = `⚠️ ${error}`;
@@ -148,17 +230,17 @@ function initGameUI() {
     });
     
     socket.on('disconnect', (reason) => {
-        console.log('🔌 Socket disconnected in gameUI. Reason:', reason);
+        console.log('🔌 Socket disconnected. Reason:', reason);
         gameReady = false;
         const statusBar = document.getElementById('statusBar');
         if (statusBar) {
-            statusBar.innerHTML = '⚠️ Потеря соединения с сервером. Переподключение...';
+            statusBar.innerHTML = '⚠️ Потеря соединения. Переподключение...';
             statusBar.style.background = 'rgba(139, 0, 0, 0.7)';
         }
     });
     
     socket.on('reconnect', (attemptNumber) => {
-        console.log('🔄 Переподключение к серверу успешно (попытка ' + attemptNumber + ')');
+        console.log('🔄 Переподключение успешно (попытка ' + attemptNumber + ')');
         gameReady = true;
         
         const statusBar = document.getElementById('statusBar');
@@ -173,52 +255,28 @@ function initGameUI() {
         requestGameState();
     });
     
-    socket.on('reconnect_attempt', (attemptNumber) => {
-        console.log('🔄 Попытка переподключения #' + attemptNumber);
-        const statusBar = document.getElementById('statusBar');
-        if (statusBar) {
-            statusBar.innerHTML = `🔄 Переподключение... (попытка ${attemptNumber})`;
-        }
-    });
-    
-    socket.on('reconnect_error', (error) => {
-        console.error('❌ Ошибка переподключения:', error);
-    });
-    
-    socket.on('reconnect_failed', () => {
-        console.error('❌ Не удалось переподключиться к серверу');
-        const statusBar = document.getElementById('statusBar');
-        if (statusBar) {
-            statusBar.innerHTML = '❌ Не удалось подключиться к серверу. Обновите страницу.';
-        }
-    });
-    
     function requestGameState() {
         stateRequestCount = 0;
         
         const doRequest = () => {
-            // Прекращаем запросы если уже получили состояние
             if (currentGameState && currentGameState.myHand && currentGameState.myHand.length > 0) {
-                console.log('✅ Состояние игры уже получено, запросы прекращены');
+                console.log('✅ Состояние уже получено');
                 return;
             }
             
             if (socket && socket.connected) {
-                console.log(`🔄 Запрос состояния игры (попытка ${stateRequestCount + 1}) для ${playerName}`);
                 socket.emit('requestGameState', { 
                     username: playerName, 
                     lobbyId: currentLobbyId 
                 });
                 stateRequestCount++;
                 
+                updateLoadingProgress(40 + stateRequestCount * 3, `Поиск игры... (попытка ${stateRequestCount})`);
+                
                 if (stateRequestCount < 15) {
                     setTimeout(doRequest, 1500);
                 } else {
-                    console.log('❌ Не удалось получить состояние игры после 15 попыток');
-                    const statusBar = document.getElementById('statusBar');
-                    if (statusBar) {
-                        statusBar.innerHTML = '❌ Не удалось загрузить игру. Возврат в лобби...';
-                    }
+                    updateLoadingProgress(100, 'Игра не найдена');
                     setTimeout(() => {
                         window.location.href = '/lobby.html';
                     }, 2000);
@@ -230,6 +288,7 @@ function initGameUI() {
     }
 }
 
+// ================== АНИМАЦИЯ РАЗДАЧИ ==================
 function startDealingAnimation(data) {
     if (dealingInProgress) return;
     dealingInProgress = true;
@@ -239,7 +298,6 @@ function startDealingAnimation(data) {
     
     console.log('🎴 Запуск анимации раздачи. Дилер:', players[dealerIndex]?.username);
     
-    // Очищаем стол и руки перед анимацией
     const tableZone = document.getElementById('tableZone');
     const myHandEl = document.getElementById('myHand');
     const playerTop = document.getElementById('playerTop');
@@ -248,7 +306,6 @@ function startDealingAnimation(data) {
     if (tableZone) tableZone.innerHTML = '';
     if (myHandEl) myHandEl.innerHTML = '';
     
-    // Обновляем информацию об игроках
     if (playerTop) {
         const topPlayer = players.find((_, i) => i !== dealerIndex && i === (dealerIndex + 1) % 3);
         if (topPlayer || players[0]) {
@@ -275,7 +332,6 @@ function startDealingAnimation(data) {
         }
     }
     
-    // Создаем оверлей с колодой
     const overlay = document.createElement('div');
     overlay.id = 'dealAnimationOverlay';
     overlay.className = 'deal-overlay';
@@ -308,7 +364,6 @@ function startDealingAnimation(data) {
         </div>
     `;
     
-    // Добавляем стили для анимации
     if (!document.getElementById('dealAnimStyles')) {
         const style = document.createElement('style');
         style.id = 'dealAnimStyles';
@@ -327,11 +382,7 @@ function startDealingAnimation(data) {
                 justify-content: center;
                 animation: fadeIn 0.5s ease;
             }
-            
-            .deal-container {
-                text-align: center;
-            }
-            
+            .deal-container { text-align: center; }
             .dealer-info {
                 margin-bottom: 30px;
                 color: #faf4e0;
@@ -340,44 +391,29 @@ function startDealingAnimation(data) {
                 letter-spacing: 2px;
                 text-shadow: 0 0 20px rgba(212, 175, 55, 0.5);
             }
-            
-            .dealer-label {
-                color: #c9af7b;
-            }
-            
             .dealer-name {
                 color: #d4af37;
                 font-weight: bold;
                 font-size: 28px;
                 text-shadow: 0 0 30px rgba(212, 175, 55, 0.8);
             }
-            
             .deck-wrapper {
                 position: relative;
                 display: inline-block;
                 transition: transform 0.3s ease;
             }
-            
             .deck-wrapper.clickable {
                 cursor: pointer;
                 animation: glowPulse 2s ease-in-out infinite;
             }
-            
-            .deck-wrapper.clickable:hover {
-                transform: scale(1.05);
-            }
-            
-            .deck-wrapper.clickable:hover .deck-glow {
-                opacity: 1;
-            }
-            
+            .deck-wrapper.clickable:hover { transform: scale(1.05); }
+            .deck-wrapper.clickable:hover .deck-glow { opacity: 1; }
             .deck-stack {
                 position: relative;
                 width: 160px;
                 height: 224px;
                 margin: 0 auto;
             }
-            
             .deck-card-animated {
                 position: absolute;
                 width: 100%;
@@ -385,7 +421,6 @@ function startDealingAnimation(data) {
                 border-radius: 14px;
                 transition: all 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
             }
-            
             .card-back-pattern {
                 width: 100%;
                 height: 100%;
@@ -396,7 +431,6 @@ function startDealingAnimation(data) {
                 position: relative;
                 background: linear-gradient(135deg, #1a237e 0%, #0d47a1 50%, #1565c0 100%);
             }
-            
             .card-back-pattern.card-back-fallback::after {
                 content: "🂠";
                 position: absolute;
@@ -407,18 +441,6 @@ function startDealingAnimation(data) {
                 color: rgba(212, 175, 55, 0.6);
                 text-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
             }
-            
-            .card-back-pattern.card-back-fallback::before {
-                content: "";
-                position: absolute;
-                top: 10px;
-                left: 10px;
-                right: 10px;
-                bottom: 10px;
-                border: 2px solid rgba(212, 175, 55, 0.3);
-                border-radius: 8px;
-            }
-            
             .card-back-image {
                 width: 100%;
                 height: 100%;
@@ -426,7 +448,6 @@ function startDealingAnimation(data) {
                 border-radius: 14px;
                 display: block;
             }
-            
             .deck-glow {
                 position: absolute;
                 top: 50%;
@@ -440,7 +461,6 @@ function startDealingAnimation(data) {
                 transition: opacity 0.5s ease;
                 pointer-events: none;
             }
-            
             .deal-instruction {
                 margin-top: 35px;
                 color: #d4af37;
@@ -450,36 +470,20 @@ function startDealingAnimation(data) {
                 text-shadow: 0 0 20px rgba(212, 175, 55, 0.6);
                 animation: pulse 2s ease-in-out infinite;
             }
-            
             @keyframes dealCardFly {
-                0% { 
-                    transform: translate(0, 0) rotate(0deg);
-                    opacity: 1;
-                }
-                80% {
-                    opacity: 0.7;
-                }
-                100% { 
-                    transform: translate(var(--fly-x), var(--fly-y)) rotate(var(--fly-rot)) scale(0.7);
-                    opacity: 0;
-                }
+                0% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+                80% { opacity: 0.7; }
+                100% { transform: translate(var(--fly-x), var(--fly-y)) rotate(var(--fly-rot)) scale(0.7); opacity: 0; }
             }
-            
-            @keyframes fadeIn {
-                from { opacity: 0; }
-                to { opacity: 1; }
-            }
-            
+            @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
             @keyframes glowPulse {
                 0%, 100% { filter: drop-shadow(0 0 20px rgba(212, 175, 55, 0.3)); }
                 50% { filter: drop-shadow(0 0 45px rgba(212, 175, 55, 0.7)); }
             }
-            
             @keyframes pulse {
                 0%, 100% { opacity: 1; transform: scale(1); }
                 50% { opacity: 0.6; transform: scale(1.05); }
             }
-            
             @keyframes particleBurst {
                 0% { transform: translate(0, 0) scale(1); opacity: 1; }
                 100% { transform: translate(var(--px), var(--py)) scale(0); opacity: 0; }
@@ -504,7 +508,6 @@ function startDealingAnimation(data) {
         deckWrapper.style.pointerEvents = 'none';
     }
     
-    // Слушаем событие от сервера для синхронизации
     socket.once('startDealingAnimation', () => {
         animateCardDistribution(players, dealerIndex, overlay);
     });
@@ -517,17 +520,13 @@ function handleDeckClick(players, dealerIndex, overlay) {
         deckWrapper.style.pointerEvents = 'none';
     }
     
-    // Отправляем событие на сервер для синхронизации
     socket.emit('startDealingAnimation', { lobbyId: currentLobbyId });
-    
-    // Запускаем анимацию локально
     animateCardDistribution(players, dealerIndex, overlay);
 }
 
 function animateCardDistribution(players, dealerIndex, overlay) {
     console.log('🃏 Запуск анимации раздачи карт');
     
-    // Скрываем инструкцию
     const instruction = document.getElementById('dealInstruction');
     if (instruction) {
         instruction.textContent = '🃏 РАЗДАЧА КАРТ...';
@@ -535,21 +534,17 @@ function animateCardDistribution(players, dealerIndex, overlay) {
         instruction.style.opacity = '0.8';
     }
     
-    // Определяем позиции для раздачи
     const positions = {
         top: { x: window.innerWidth / 2, y: 130 },
         right: { x: window.innerWidth - 180, y: window.innerHeight / 2 },
         bottom: { x: window.innerWidth / 2, y: window.innerHeight - 180 }
     };
     
-    // Определяем, какой игрок где находится
     const playerPositions = {};
     const otherIndices = [0, 1, 2].filter(i => i !== dealerIndex);
     
-    // Дилер всегда снизу
     playerPositions[dealerIndex] = { ...positions.bottom, name: players[dealerIndex].username };
     
-    // Остальные игроки
     if (otherIndices.length >= 1) {
         playerPositions[otherIndices[0]] = { ...positions.top, name: players[otherIndices[0]].username };
     }
@@ -562,7 +557,6 @@ function animateCardDistribution(players, dealerIndex, overlay) {
     const deckCenterX = window.innerWidth / 2;
     const deckCenterY = window.innerHeight / 2;
     
-    // Анимируем каждую карту
     deckCards.forEach((card, index) => {
         setTimeout(() => {
             const playerIndex = Math.floor(index / 12) % 3;
@@ -581,7 +575,6 @@ function animateCardDistribution(players, dealerIndex, overlay) {
                 card.style.animation = `dealCardFly 0.6s ease-in forwards`;
                 card.style.animationDelay = `${index * 15}ms`;
                 
-                // Частицы при приземлении
                 if (index % 3 === 0) {
                     setTimeout(() => {
                         createDealParticles(target.x, target.y);
@@ -591,11 +584,9 @@ function animateCardDistribution(players, dealerIndex, overlay) {
         }, index * 20);
     });
     
-    // Завершаем анимацию
-    const totalCards = 36;
     setTimeout(() => {
         finishDealingAnimation(overlay);
-    }, totalCards * 20 + 1500);
+    }, 36 * 20 + 1500);
 }
 
 function createDealParticles(x, y) {
@@ -621,7 +612,6 @@ function createDealParticles(x, y) {
         particle.style.animation = 'particleBurst 0.5s ease-out forwards';
         
         document.body.appendChild(particle);
-        
         setTimeout(() => particle.remove(), 500);
     }
 }
@@ -639,26 +629,44 @@ function finishDealingAnimation(overlay) {
         dealingInProgress = false;
         animationOverlay = null;
         
-        // Показываем сообщение
-        const statusBar = document.getElementById('statusBar');
-        if (statusBar) {
-            statusBar.innerHTML = '♠️ КАРТЫ РОЗДАНЫ! ♠️<br><span style="font-size:12px">Игра начинается</span>';
-            statusBar.style.background = 'linear-gradient(135deg, rgba(212, 175, 55, 0.95), rgba(184, 134, 11, 0.95))';
-            statusBar.style.color = '#1a0f08';
-            statusBar.style.borderLeft = '6px solid #ffd700';
-            
-            setTimeout(() => {
-                statusBar.style.background = 'rgba(10, 6, 4, 0.92)';
-                statusBar.style.color = '#f5e2b0';
-                statusBar.style.borderLeft = '6px solid #d4af37';
-            }, 2500);
+        // Если состояние уже получено - отображаем карты
+        if (currentGameState && currentGameState.myHand && currentGameState.myHand.length > 0) {
+            console.log('Отображаем карты после анимации');
+            updateGameStateDisplay(currentGameState);
         }
     }, 500);
 }
 
+// ================== ОТОБРАЖЕНИЕ ИГРЫ ==================
 function updateGameState(state) {
     if (!state) return;
     
+    // Скрываем загрузку
+    hideLoadingScreen();
+    
+    // Сохраняем состояние
+    currentGameState = state;
+    
+    // Если анимация раздачи еще идет - не показываем карты
+    if (dealingInProgress) {
+        console.log('Анимация раздачи еще идет, карты скрыты');
+        if (state.players) {
+            renderPlayersInfo(state.players, state.currentAttacker, state.currentDefender);
+        }
+        renderStatus(state);
+        return;
+    }
+    
+    // Отображаем карты
+    updateGameStateDisplay(state);
+}
+
+function updateGameStateDisplay(state) {
+    console.log('🎴 Отображение карт игрока, isMyTurnAttack:', state.isMyTurnAttack);
+    console.log('   isMyAdditionalAttackTurn:', state.isMyAdditionalAttackTurn);
+    console.log('   isMyTurnDefend:', state.isMyTurnDefend);
+    
+    // Обновляем глобальные переменные
     isMyAttackTurn = state.isMyTurnAttack;
     isMyDefendTurn = state.isMyTurnDefend;
     isMyAdditionalAttackTurn = state.isMyAdditionalAttackTurn || false;
@@ -667,6 +675,7 @@ function updateGameState(state) {
     
     window.gameWinner = state.gameWinner;
     
+    // Обновляем UI
     renderStatus(state);
     renderTable(state.table);
     renderMyHand(state.myHand, state);
@@ -691,20 +700,32 @@ function renderStatus(state) {
     }
     
     let statusHtml = '';
-    if (isMyAdditionalAttackTurn) {
-        statusHtml = '➕ ПОДКИДЫВАНИЕ КАРТ ➕<br><span style="font-size:12px">Нажмите на карту, чтобы подкинуть</span>';
+    
+    // Режим дополнительной атаки (третий игрок подкидывает)
+    if (state.isMyAdditionalAttackTurn) {
+        statusHtml = '➕ ВЫ ПОДКИДЫВАЕТЕ КАРТЫ ➕<br><span style="font-size:12px">Нажмите на карту, чтобы подкинуть</span>';
         statusBar.style.background = 'rgba(106, 27, 154, 0.92)';
         statusBar.style.borderLeft = '6px solid #d4af37';
-    } else if (isMyAttackTurn) {
+    } 
+    // Обычная атака
+    else if (state.isMyTurnAttack) {
         statusHtml = '🔥 ВЫ АТАКУЕТЕ 🔥<br><span style="font-size:12px">Нажмите на карту, чтобы сходить</span>';
         statusBar.style.background = 'rgba(198, 76, 0, 0.92)';
         statusBar.style.borderLeft = '6px solid #d4af37';
-    } else if (isMyDefendTurn) {
+    } 
+    // Защита
+    else if (state.isMyTurnDefend) {
         statusHtml = '🛡️ ВЫ ОТБИВАЕТЕСЬ 🛡️<br><span style="font-size:12px">Нажмите на карту, чтобы побить</span>';
         statusBar.style.background = 'rgba(33, 99, 33, 0.92)';
         statusBar.style.borderLeft = '6px solid #d4af37';
-    } else {
-        statusHtml = `🎴 Ходит: ${state.currentAttacker || '—'} → отбивается: ${state.currentDefender || '—'}<br><span style="font-size:12px">♢ КОЗЫРЬ: БУБНЫ</span>`;
+    } 
+    // Наблюдение
+    else {
+        let additionalInfo = '';
+        if (state.additionalAttacker) {
+            additionalInfo = ` | ✨ Подкидывает: ${state.additionalAttacker}`;
+        }
+        statusHtml = `🎴 Ходит: ${state.currentAttacker || '—'} → отбивается: ${state.currentDefender || '—'}${additionalInfo}<br><span style="font-size:12px">♢ КОЗЫРЬ: БУБНЫ</span>`;
         statusBar.style.background = 'rgba(10, 6, 4, 0.92)';
         statusBar.style.borderLeft = '6px solid #d4af37';
     }
@@ -924,23 +945,39 @@ function renderActionButtons(state) {
     const allDefended = attackCount === defendCount && attackCount > 0;
     const hasUndefended = attackCount > defendCount;
     
-    let hasAnyButton = false;
+    // Определяем, какие кнопки нужны
+    let showEndTurn = false;        // Завершить ход (для атакующего, когда все отбито И нет режима доп. атаки)
+    let showEndAdditional = false;   // Завершить подкид (для третьего игрока)
+    let showTakeCards = false;       // Забрать карты (для защитника, если не может отбить)
     
+    // Атакующий может завершить ход ТОЛЬКО если:
+    // 1. Это его ход (isMyTurnAttack = true)
+    // 2. Нет активной дополнительной атаки (isMyAdditionalAttackTurn = false)
+    // 3. На столе есть карты
+    // 4. Все карты отбиты
     if (state.isMyTurnAttack && !state.isMyAdditionalAttackTurn && table.length > 0 && allDefended) {
-        hasAnyButton = true;
-    }
-    if (state.isMyAdditionalAttackTurn) {
-        hasAnyButton = true;
-    }
-    if (state.isMyTurnDefend && hasUndefended) {
-        hasAnyButton = true;
+        showEndTurn = true;
     }
     
-    if (!hasAnyButton) {
-        if (buttonsDiv) buttonsDiv.style.display = 'none';
+    // Дополнительная атака (третий игрок подкидывает)
+    if (state.isMyAdditionalAttackTurn) {
+        showEndAdditional = true;
+    }
+    
+    // Защитник может забрать карты, если есть неотбитые
+    if (state.isMyTurnDefend && hasUndefended) {
+        showTakeCards = true;
+    }
+    
+    // Если нет ни одной кнопки - скрываем панель
+    if (!showEndTurn && !showEndAdditional && !showTakeCards) {
+        if (buttonsDiv) {
+            buttonsDiv.style.display = 'none';
+        }
         return;
     }
     
+    // Создаем контейнер для кнопок если его нет
     if (!buttonsDiv) {
         buttonsDiv = document.createElement('div');
         buttonsDiv.id = 'actionButtons';
@@ -951,22 +988,80 @@ function renderActionButtons(state) {
     buttonsDiv.style.display = 'flex';
     buttonsDiv.innerHTML = '';
     
-    if (state.isMyTurnAttack && !state.isMyAdditionalAttackTurn && table.length > 0 && allDefended) {
-        const endBtn = createButton('✅ ЗАВЕРШИТЬ ХОД', 'linear-gradient(135deg, #b56a1a, #7a3e0a)', () => {
-            socket.emit('endTurn', {}, (result) => { if (result && !result.success) alert(result.error); });
-        });
+    // Кнопка "Завершить ход" (для атакующего)
+    if (showEndTurn) {
+        const endBtn = document.createElement('button');
+        endBtn.className = 'action-btn';
+        endBtn.textContent = '✅ ЗАВЕРШИТЬ ХОД';
+        endBtn.style.background = 'linear-gradient(135deg, #b56a1a, #7a3e0a)';
+        endBtn.onclick = function() {
+            console.log('Нажата кнопка Завершить ход');
+            if (socket && socket.connected) {
+                // Блокируем кнопку и скрываем её сразу
+                endBtn.disabled = true;
+                endBtn.style.display = 'none';
+                
+                socket.emit('endTurn', {}, function(result) {
+                    console.log('Результат endTurn:', result);
+                    if (result && !result.success) {
+                        alert(result.error || 'Ошибка');
+                        // Если ошибка - возвращаем кнопку
+                        endBtn.disabled = false;
+                        endBtn.style.display = 'block';
+                    }
+                    // При успехе кнопка исчезнет навсегда (из-за обновления состояния)
+                });
+            }
+        };
         buttonsDiv.appendChild(endBtn);
     }
-    if (state.isMyAdditionalAttackTurn) {
-        const endAddBtn = createButton('✅ ЗАВЕРШИТЬ ПОДКИД', 'linear-gradient(135deg, #6a1b9a, #3e0a5a)', () => {
-            socket.emit('endAdditionalAttack', {}, (result) => { if (result && !result.success) alert(result.error); });
-        });
+    
+    // Кнопка "Завершить подкид" (для третьего игрока)
+    if (showEndAdditional) {
+        const endAddBtn = document.createElement('button');
+        endAddBtn.className = 'action-btn';
+        endAddBtn.textContent = '✅ ЗАВЕРШИТЬ ПОДКИД';
+        endAddBtn.style.background = 'linear-gradient(135deg, #6a1b9a, #3e0a5a)';
+        endAddBtn.onclick = function() {
+            console.log('Нажата кнопка Завершить подкид');
+            if (socket && socket.connected) {
+                endAddBtn.disabled = true;
+                endAddBtn.style.display = 'none';
+                
+                socket.emit('endAdditionalAttack', {}, function(result) {
+                    console.log('Результат endAdditionalAttack:', result);
+                    if (result && !result.success) {
+                        alert(result.error || 'Ошибка');
+                        endAddBtn.disabled = false;
+                        endAddBtn.style.display = 'block';
+                    }
+                });
+            }
+        };
         buttonsDiv.appendChild(endAddBtn);
     }
-    if (state.isMyTurnDefend && hasUndefended) {
-        const takeBtn = createButton('📥 ЗАБРАТЬ КАРТЫ', 'linear-gradient(135deg, #8b0000, #5c0000)', () => {
-            socket.emit('takeCards', {}, (result) => { if (result && !result.success) alert(result.error); });
-        });
+    
+    // Кнопка "Забрать карты"
+    if (showTakeCards) {
+        const takeBtn = document.createElement('button');
+        takeBtn.className = 'action-btn';
+        takeBtn.textContent = '📥 ЗАБРАТЬ КАРТЫ';
+        takeBtn.style.background = 'linear-gradient(135deg, #8b0000, #5c0000)';
+        takeBtn.onclick = function() {
+            console.log('Нажата кнопка Забрать карты');
+            if (socket && socket.connected) {
+                takeBtn.disabled = true;
+                takeBtn.style.display = 'none';
+                
+                socket.emit('takeCards', {}, function(result) {
+                    if (result && !result.success) {
+                        alert(result.error || 'Ошибка');
+                        takeBtn.disabled = false;
+                        takeBtn.style.display = 'block';
+                    }
+                });
+            }
+        };
         buttonsDiv.appendChild(takeBtn);
     }
 }
@@ -978,6 +1073,6 @@ function exitGame() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    console.log('DOM загружен, инициализация GameUI (Luxury Casino) с анимацией раздачи');
+    console.log('DOM загружен, инициализация GameUI (Luxury Casino)');
     initGameUI();
 });
