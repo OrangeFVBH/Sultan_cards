@@ -740,35 +740,46 @@ function renderPlayersInfo(players, attacker, defender) {
     
     if (!playerTop || !playerRight) return;
     
-    const otherPlayers = players.filter(p => p.id !== socket.id);
+    // Переупорядочиваем игроков относительно текущего пользователя
+    const reordered = reorderPlayersForMe(players, playerName);
     
-    if (otherPlayers[0]) {
+    // visualPosition:
+    // 0 - я (не отображаем здесь)
+    // 1 - следующий по ЧАСОВОЙ - должен быть СВЕРХУ
+    // 2 - следующий по ЧАСОВОЙ - должен быть СПРАВА
+    
+    const playerOnTop = reordered.find(p => p.visualPosition === 1);
+    const playerOnRight = reordered.find(p => p.visualPosition === 2);
+    
+    // Отображаем игрока сверху (первый по ходу ПО ЧАСОВОЙ)
+    if (playerOnTop) {
         let roleHtml = '';
         let winnerClass = '';
-        if (otherPlayers[0].username === attacker) roleHtml = '<div class="role-badge attacker">⚔️ АТАКУЕТ</div>';
-        if (otherPlayers[0].username === defender) roleHtml = '<div class="role-badge defender">🛡️ ОТБИВАЕТСЯ</div>';
-        if (otherPlayers[0].cardCount === 0) winnerClass = 'player-winner';
+        if (playerOnTop.username === attacker) roleHtml = '<div class="role-badge attacker">⚔️ АТАКУЕТ</div>';
+        if (playerOnTop.username === defender) roleHtml = '<div class="role-badge defender">🛡️ ОТБИВАЕТСЯ</div>';
+        if (playerOnTop.cardCount === 0) winnerClass = 'player-winner';
         
         playerTop.innerHTML = `
             <div class="badge-info">
-                <div class="player-name ${winnerClass}">${escapeHtml(otherPlayers[0].username)}</div>
-                <div class="player-cards">🎴 ${otherPlayers[0].cardCount} карт</div>
+                <div class="player-name ${winnerClass}">${escapeHtml(playerOnTop.username)}</div>
+                <div class="player-cards">🎴 ${playerOnTop.cardCount} карт</div>
                 ${roleHtml}
             </div>
         `;
     }
     
-    if (otherPlayers[1]) {
+    // Отображаем игрока справа (второй по ходу ПО ЧАСОВОЙ)
+    if (playerOnRight) {
         let roleHtml = '';
         let winnerClass = '';
-        if (otherPlayers[1].username === attacker) roleHtml = '<div class="role-badge attacker">⚔️ АТАКУЕТ</div>';
-        if (otherPlayers[1].username === defender) roleHtml = '<div class="role-badge defender">🛡️ ОТБИВАЕТСЯ</div>';
-        if (otherPlayers[1].cardCount === 0) winnerClass = 'player-winner';
+        if (playerOnRight.username === attacker) roleHtml = '<div class="role-badge attacker">⚔️ АТАКУЕТ</div>';
+        if (playerOnRight.username === defender) roleHtml = '<div class="role-badge defender">🛡️ ОТБИВАЕТСЯ</div>';
+        if (playerOnRight.cardCount === 0) winnerClass = 'player-winner';
         
         playerRight.innerHTML = `
             <div class="badge-info">
-                <div class="player-name ${winnerClass}">${escapeHtml(otherPlayers[1].username)}</div>
-                <div class="player-cards">🎴 ${otherPlayers[1].cardCount} карт</div>
+                <div class="player-name ${winnerClass}">${escapeHtml(playerOnRight.username)}</div>
+                <div class="player-cards">🎴 ${playerOnRight.cardCount} карт</div>
                 ${roleHtml}
             </div>
         `;
@@ -1064,6 +1075,25 @@ function renderActionButtons(state) {
         };
         buttonsDiv.appendChild(takeBtn);
     }
+}
+
+function reorderPlayersForMe(players, myUsername) {
+    // Находим индекс текущего игрока
+    const myIndex = players.findIndex(p => p.username === myUsername);
+    if (myIndex === -1) return players;
+    
+    const totalPlayers = players.length;
+    const reordered = [];
+       
+    for (let i = 0; i < totalPlayers; i++) {
+        const idx = (myIndex + i) % totalPlayers;
+        reordered.push({
+            ...players[idx],
+            visualPosition: i  // 0 = я (снизу), 1 = следующий (сверху), 2 = следующий (справа)
+        });
+    }
+    
+    return reordered;
 }
 
 function exitGame() {

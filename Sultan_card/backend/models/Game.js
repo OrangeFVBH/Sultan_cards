@@ -57,7 +57,14 @@ class Game {
     additionalAttack(playerId, cardIndex) {
         // Проверяем, есть ли активная дополнительная атака
         if (this.additionalAttackerIndex === null) {
-            return { success: false, error: 'Сейчас нет дополнительной атаки' };
+            const possibleAttacker = this.getNextPlayerCounterClockwise(this.currentDefenderIndex);
+            if (possibleAttacker !== this.currentAttackerIndex && 
+                possibleAttacker !== this.currentDefenderIndex &&
+                this.players[possibleAttacker].hand.length > 0) {
+                this.additionalAttackerIndex = possibleAttacker;
+            } else {
+                return { success: false, error: 'Нет игрока для дополнительной атаки' };
+            }
         }
         
         // Только третий игрок (который подкидывает) может атаковать
@@ -291,22 +298,26 @@ class Game {
         this.table = [];
         this.allowedRanks.clear();
         
-        // Защитник становится атакующим
-        const oldDefenderIndex = this.currentDefenderIndex;
-        this.currentAttackerIndex = oldDefenderIndex;
+        // В Дураке: после завершения боя атакующим становится следующий игрок по ЧАСОВОЙ
+        // от предыдущего атакующего
+        const oldAttackerIndex = this.currentAttackerIndex;
         
-        // Следующий по часовой становится защитником
-        this.currentDefenderIndex = this.getNextActivePlayer(this.currentAttackerIndex);
+        // Новый атакующий = следующий по ЧАСОВОЙ от старого атакующего
+        this.currentAttackerIndex = this.getNextPlayerClockwise(oldAttackerIndex);
+        
+        // Новый защитник = следующий по ЧАСОВОЙ от нового атакующего
+        this.currentDefenderIndex = this.getNextPlayerClockwise(this.currentAttackerIndex);
         
         // Сбрасываем дополнительного атакующего
         this.additionalAttackerIndex = null;
         
-        console.log(`🔄 Бой завершен. Новый атакующий: ${this.players[this.currentAttackerIndex]?.username} (карт: ${this.players[this.currentAttackerIndex]?.hand.length})`);
-        console.log(`   Новый защитник: ${this.players[this.currentDefenderIndex]?.username} (карт: ${this.players[this.currentDefenderIndex]?.hand.length})`);
-        console.log(`   isMyTurnAttack для нового атакующего: true`);
+        console.log(`🔄 Бой завершен.`);
+        console.log(`   Новый атакующий (по часовой): ${this.players[this.currentAttackerIndex]?.username}`);
+        console.log(`   Новый защитник: ${this.players[this.currentDefenderIndex]?.username}`);
         
         this.checkWinCondition();
     }
+
     getNextActivePlayer(currentIndex) {
         const activePlayers = this.players.filter(p => p.hand.length > 0).length;
         
@@ -329,6 +340,51 @@ class Game {
         return currentIndex;
     }
 
+    getClockwiseOrder(startIndex) {
+        const result = [];
+        for (let i = 0; i < this.players.length; i++) {
+            result.push((startIndex + i) % this.players.length);
+        }
+        return result;
+    }
+
+    getNextPlayerClockwise(currentIndex) {
+        const activePlayers = this.players.filter(p => p.hand.length > 0).length;
+        if (activePlayers <= 1) return currentIndex;
+        
+        // Идем ПО ЧАСОВОЙ: индекс +1
+        let nextIndex = (currentIndex + 1) % this.players.length;
+        let attempts = 0;
+        
+        while (attempts < this.players.length) {
+            const player = this.players[nextIndex];
+            if (player && player.hand.length > 0) {
+                return nextIndex;
+            }
+            nextIndex = (nextIndex + 1) % this.players.length;
+            attempts++;
+        }
+        return currentIndex;
+    }
+
+    getPreviousPlayerClockwise(currentIndex) {
+        const activePlayers = this.players.filter(p => p.hand.length > 0).length;
+        if (activePlayers <= 1) return currentIndex;
+        
+        let prevIndex = (currentIndex + 1) % this.players.length;
+        let attempts = 0;
+        
+        while (attempts < this.players.length) {
+            const player = this.players[prevIndex];
+            if (player && player.hand.length > 0) {
+                return prevIndex;
+            }
+            prevIndex = (prevIndex + 1) % this.players.length;
+            attempts++;
+        }
+        return currentIndex;
+    }
+
     getActivePlayersCount() {
         return this.players.filter(p => p.hand.length > 0).length;
     }
@@ -340,19 +396,18 @@ class Game {
         const takenCards = [...this.table.map(t => t.card)];
         defender.hand.push(...takenCards);
         
-        console.log(`📥 ${defender.username} забирает ${takenCards.length} карт, теперь у него ${defender.hand.length} карт`);
+        console.log(`📥 ${defender.username} забирает ${takenCards.length} карт`);
         
         this.table = [];
         this.allowedRanks.clear();
         this.additionalAttackerIndex = null;
 
-        // После взятия карт: ход переходит к следующему после защитника
-        // Этот игрок становится атакующим, а следующий за ним - защитником
-        this.currentAttackerIndex = this.getNextActivePlayer(this.currentDefenderIndex);
-        this.currentDefenderIndex = this.getNextActivePlayer(this.currentAttackerIndex);
+        // После взятия карт: ход переходит к следующему по ЧАСОВОЙ после защитника
+        this.currentAttackerIndex = this.getNextPlayerClockwise(this.currentDefenderIndex);
+        this.currentDefenderIndex = this.getNextPlayerClockwise(this.currentAttackerIndex);
         
-        console.log(`🔄 После взятия карт. Атакующий: ${this.players[this.currentAttackerIndex]?.username} (карт: ${this.players[this.currentAttackerIndex]?.hand.length})`);
-        console.log(`   Защитник: ${this.players[this.currentDefenderIndex]?.username} (карт: ${this.players[this.currentDefenderIndex]?.hand.length})`);
+        console.log(`🔄 После взятия карт. Атакующий: ${this.players[this.currentAttackerIndex]?.username}`);
+        console.log(`   Защитник: ${this.players[this.currentDefenderIndex]?.username}`);
         
         this.checkWinCondition();
         return { success: true };
@@ -512,20 +567,39 @@ class Game {
         }
     }
 
+    getNextPlayerCounterClockwise(currentIndex) {
+        const activePlayers = this.players.filter(p => p.hand.length > 0).length;
+        if (activePlayers <= 1) return currentIndex;
+        
+        // Идем ПРОТИВ часовой: индекс -1 (уменьшаем)
+        let nextIndex = (currentIndex - 1 + this.players.length) % this.players.length;
+        let attempts = 0;
+        
+        while (attempts < this.players.length) {
+            const player = this.players[nextIndex];
+            if (player && player.hand.length > 0) {
+                return nextIndex;
+            }
+            nextIndex = (nextIndex - 1 + this.players.length) % this.players.length;
+            attempts++;
+        }
+        return currentIndex;
+    }
+
     getStateForPlayer(playerId) {
         const myIndex = this.players.findIndex(p => p.id === playerId);
         const player = this.players[myIndex];
 
-        // Определяем, может ли игрок атаковать
+        // Для каждого игрока определяем его "визуальное" положение
+        // Порядок по часовой стрелке от меня: я -> next -> next
+        
         let isMyTurnAttack = false;
         let isMyAdditionalAttackTurn = false;
         
         if (this.additionalAttackerIndex !== null) {
-            // Режим дополнительной атаки - атаковать может ТОЛЬКО третий игрок
             isMyAdditionalAttackTurn = (myIndex === this.additionalAttackerIndex);
-            isMyTurnAttack = false; // Обычная атака НЕДОСТУПНА для всех остальных
+            isMyTurnAttack = false;
         } else {
-            // Обычный режим - атакует только currentAttacker
             isMyTurnAttack = (myIndex === this.currentAttackerIndex);
             isMyAdditionalAttackTurn = false;
         }
@@ -538,6 +612,7 @@ class Game {
                 username: p.username,
                 cardCount: p.hand.length
             })),
+            // Используем индексы напрямую — клиент сам переупорядочит для отображения
             currentAttacker: this.players[this.currentAttackerIndex]?.username || '—',
             currentDefender: this.players[this.currentDefenderIndex]?.username || '—',
             additionalAttacker: this.additionalAttackerIndex !== null ? this.players[this.additionalAttackerIndex]?.username : null,
