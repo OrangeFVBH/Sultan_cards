@@ -892,8 +892,34 @@ function initGameUI() {
         requestGameState();
     });
 
+    // ========== НАЧИСЛЕНИЕ 100 КРАНОВ ТОЛЬКО ДЛЯ 2 ИГРОКОВ ==========
     socket.on('roundOver', (data) => {
         console.log('🏁 Раунд окончен:', data);
+        
+        // Начисление 100 кранов ТОЛЬКО для 2 игроков
+        const playerCount = currentGameState?.players?.length || 0;
+        
+        if (playerCount === 2 && data.allWinners && data.allWinners.includes(playerName)) {
+            console.log('💰 Победа в режиме 2 игроков! Начисляем +100 кранов');
+            
+            fetch('/api/auth/add-coins', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    username: playerName, 
+                    amount: 100 
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    console.log(`✅ +100 кранов за победу! Новый баланс: ${data.coins}`);
+                    showToast('🏆 Победа в режиме 2 игроков! +100 кранов!');
+                }
+            })
+            .catch(err => console.error('❌ Ошибка начисления кранов:', err));
+        }
+        // ========== КОНЕЦ НАЧИСЛЕНИЯ ==========
         
         const statusBar = document.getElementById('statusBar');
         if (statusBar && !statusBar.hasAttribute('data-temp-message')) {
@@ -3012,6 +3038,55 @@ function disableHoverOnMobile() {
         `;
         document.head.appendChild(style);
     }
+}
+
+// ================== ФУНКЦИЯ ДЛЯ УВЕДОМЛЕНИЙ ==================
+function showToast(message) {
+    const oldToast = document.querySelector('.toast-notification');
+    if (oldToast) oldToast.remove();
+    
+    const toast = document.createElement('div');
+    toast.className = 'toast-notification';
+    toast.textContent = message;
+    toast.style.cssText = `
+        position: fixed;
+        bottom: 200px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: linear-gradient(135deg, #d4af37, #b8860b);
+        color: #1a0f08;
+        padding: 12px 24px;
+        border-radius: 50px;
+        z-index: 99999;
+        font-family: 'Oswald', sans-serif;
+        font-weight: bold;
+        font-size: 16px;
+        box-shadow: 0 4px 30px rgba(212, 175, 55, 0.6);
+        border: 2px solid #ffd700;
+        animation: toastSlideUp 0.3s ease;
+        text-align: center;
+        pointer-events: none;
+    `;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(-50%) translateY(-20px)';
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
+}
+
+if (!document.getElementById('toastStyles')) {
+    const style = document.createElement('style');
+    style.id = 'toastStyles';
+    style.textContent = `
+        @keyframes toastSlideUp {
+            from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+            to { opacity: 1; transform: translateX(-50%) translateY(0); }
+        }
+    `;
+    document.head.appendChild(style);
 }
 
 document.addEventListener('DOMContentLoaded', () => {

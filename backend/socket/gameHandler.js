@@ -550,51 +550,13 @@ module.exports = (io) => {
                 return;
             }
             
-            // ========== ПРОВЕРКА КРАНОВ ==========
-            let allHaveCoins = true;
-            let insufficientPlayer = null;
+            // ========== ПРОВЕРКА КРАНОВ (ОТКЛЮЧЕНА) ==========
+            // Вход в игру бесплатный - проверка отключена
+            console.log(`🎮 Запуск игры в лобби ${lobbyId} (бесплатно)`);
             
-            for (const player of lobby.players) {
-                try {
-                    const user = await User.findOne({ username: player.username });
-                    if (!user || user.coins < 500) {
-                        allHaveCoins = false;
-                        insufficientPlayer = player.username;
-                        break;
-                    }
-                } catch (error) {
-                    console.error('Ошибка проверки кранов:', error);
-                    allHaveCoins = false;
-                    insufficientPlayer = player.username;
-                    break;
-                }
-            }
-            
-            if (!allHaveCoins) {
-                if (callback) callback({ 
-                    success: false, 
-                    error: `У игрока ${insufficientPlayer} недостаточно кранов для игры (нужно 500). Пополните баланс!` 
-                });
-                return;
-            }
-            
-            // ========== СПИСАНИЕ КРАНОВ ==========
-            let totalPot = 0;
-            for (const player of lobby.players) {
-                try {
-                    const user = await User.findOne({ username: player.username });
-                    if (user && user.coins >= 500) {
-                        user.coins -= 500;
-                        await user.save();
-                        totalPot += 500;
-                        console.log(`💰 С игрока ${player.username} списано 500 кранов. Остаток: ${user.coins}`);
-                    }
-                } catch (error) {
-                    console.error(`Ошибка списания кранов у ${player.username}:`, error);
-                }
-            }
-            
-            console.log(`💰 ОБЩИЙ БАНК ИГРЫ: ${totalPot} кранов`);
+            // ========== СПИСАНИЕ КРАНОВ (ОТКЛЮЧЕНО) ==========
+            let totalPot = 0; // Вход бесплатный, банк = 0
+            console.log(`💰 ВХОД В ИГРУ БЕСПЛАТНЫЙ (проверка отключена)`);
             
             const unavailablePlayers = [];
             for (const player of lobby.players) {
@@ -647,7 +609,7 @@ module.exports = (io) => {
             
             activeGames.set(lobbyId, game);
             
-            // Обновляем баланс на клиентах
+            // Обновляем баланс на клиентах (просто показываем, не списываем)
             for (const player of lobby.players) {
                 try {
                     const user = await User.findOne({ username: player.username });

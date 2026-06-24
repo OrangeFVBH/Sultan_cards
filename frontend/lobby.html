@@ -336,150 +336,7 @@
             color: #d4af37;
         }
         
-        .add-coins-btn {
-            background: linear-gradient(135deg, #4caf50, #2e7d32);
-            border: none;
-            color: white;
-            padding: 12px 20px;
-            border-radius: 40px;
-            font-size: 20px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.2s;
-            width: auto;
-            margin: 0;
-        }
-        
-        .add-coins-btn:hover {
-            transform: scale(1.05);
-            box-shadow: 0 0 20px rgba(76, 175, 80, 0.5);
-        }
-        
-        /* Пополнение */
-        .rate-info {
-            background: rgba(212, 175, 55, 0.1);
-            border-radius: 15px;
-            padding: 12px;
-            margin-bottom: 20px;
-            text-align: center;
-            font-size: 14px;
-            color: #c9af7b;
-        }
-        
-        .rate-info strong {
-            color: #d4af37;
-            font-size: 16px;
-        }
-        
-        .deposit-input-group {
-            margin-bottom: 20px;
-        }
-        
-        .deposit-input-group label {
-            color: #c9af7b;
-            font-size: 14px;
-            margin-bottom: 8px;
-            display: block;
-        }
-        
-        .currency-input {
-            position: relative;
-            display: flex;
-            align-items: center;
-        }
-        
-        .currency-input input {
-            width: 100%;
-            padding: 14px 16px 14px 45px;
-            background: rgba(30, 20, 12, 0.9);
-            border: 1.5px solid #997a00;
-            border-radius: 50px;
-            color: #faf4e0;
-            font-size: 18px;
-            font-weight: bold;
-        }
-        
-        .currency-input input:focus {
-            outline: none;
-            border-color: #d4af37;
-        }
-        
-        .currency-symbol {
-            position: absolute;
-            left: 18px;
-            font-size: 18px;
-            color: #d4af37;
-        }
-        
-        .preset-buttons {
-            display: flex;
-            gap: 10px;
-            margin: 20px 0;
-            flex-wrap: wrap;
-        }
-        
-        .preset-btn {
-            flex: 1;
-            background: rgba(212, 175, 55, 0.15);
-            border: 1px solid rgba(212, 175, 55, 0.4);
-            color: #d4af37;
-            padding: 8px;
-            border-radius: 30px;
-            cursor: pointer;
-            font-family: 'Oswald', sans-serif;
-            font-weight: bold;
-            font-size: 13px;
-            transition: all 0.2s;
-        }
-        
-        .preset-btn:hover {
-            background: rgba(212, 175, 55, 0.3);
-        }
-        
-        .conversion-result {
-            background: rgba(0, 0, 0, 0.4);
-            border-radius: 15px;
-            padding: 15px;
-            margin: 20px 0;
-            text-align: center;
-        }
-        
-        .conversion-result .label {
-            color: #aa9977;
-            font-size: 12px;
-            margin-bottom: 5px;
-        }
-        
-        .conversion-result .value {
-            color: #d4af37;
-            font-size: 24px;
-            font-weight: bold;
-        }
-        
-        .deposit-pay-btn {
-            width: 100%;
-            padding: 14px;
-            background: linear-gradient(135deg, #4caf50, #2e7d32);
-            border: none;
-            border-radius: 50px;
-            color: white;
-            font-size: 18px;
-            font-weight: bold;
-            cursor: pointer;
-            font-family: 'Oswald', sans-serif;
-            margin-top: 10px;
-            transition: all 0.3s;
-        }
-        
-        .deposit-pay-btn:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 30px rgba(76, 175, 80, 0.4);
-        }
-        
-        .deposit-pay-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
+        /* КНОПКА ПОПОЛНЕНИЯ ПОЛНОСТЬЮ УДАЛЕНА */
         
         /* Смена имени */
         .edit-name-card {
@@ -1426,11 +1283,6 @@
                 font-size: 24px;
             }
             
-            .add-coins-btn {
-                padding: 8px 16px;
-                font-size: 16px;
-            }
-            
             .preset-btn {
                 font-size: 11px;
                 padding: 6px;
@@ -1622,45 +1474,13 @@
                         <span class="label">Кран</span>
                         <span class="amount" id="profileCoins">0</span>
                     </div>
-                    <button class="add-coins-btn" onclick="openDepositModal()">+</button>
+                    <!-- КНОПКА ПОПОЛНЕНИЯ ПОЛНОСТЬЮ УДАЛЕНА -->
                 </div>
             </div>
         </div>
     </div>
     
-    <div class="deposit-modal" id="depositModal">
-        <div class="deposit-card">
-            <div class="deposit-header">
-                <div class="test-badge">🧪 ТЕСТОВАЯ ФУНКЦИЯ</div>
-                <button class="deposit-close" onclick="closeDepositModal()">✕</button>
-                <h3>💰 ПОПОЛНЕНИЕ</h3>
-                <p>Пополните игровой баланс</p>
-            </div>
-            <div class="deposit-body">
-                <div class="rate-info">
-                    📊 Курс: <strong>1 крона = 1.2 рубля</strong>
-                </div>
-                <div class="deposit-input-group">
-                    <label>💰 Сумма в кронах</label>
-                    <div class="currency-input">
-                        <span class="currency-symbol">🎴</span>
-                        <input type="number" id="depositCoinsAmount" placeholder="Введите сумму" value="1000" min="1" step="100">
-                    </div>
-                </div>
-                <div class="preset-buttons">
-                    <button class="preset-btn" onclick="setDepositPreset(500)">500 крон</button>
-                    <button class="preset-btn" onclick="setDepositPreset(1000)">1000 крон</button>
-                    <button class="preset-btn" onclick="setDepositPreset(5000)">5000 крон</button>
-                    <button class="preset-btn" onclick="setDepositPreset(10000)">10000 крон</button>
-                </div>
-                <div class="conversion-result">
-                    <div class="label">💸 К ОПЛАТЕ (РУБЛИ)</div>
-                    <div class="value" id="depositRubAmount">0 ₽</div>
-                </div>
-                <button class="deposit-pay-btn" id="depositPayBtn" onclick="processDeposit()">💳 ОПЛАТИТЬ</button>
-            </div>
-        </div>
-    </div>
+    <!-- МОДАЛЬНОЕ ОКНО ПОПОЛНЕНИЯ ПОЛНОСТЬЮ УДАЛЕНО -->
     
     <div class="edit-name-modal" id="editNameModal">
         <div class="edit-name-card">
@@ -1776,100 +1596,7 @@
             }, 3000);
         }
         
-        function openDepositModal() {
-            closeProfileModal();
-            const payBtn = document.getElementById('depositPayBtn');
-            const coinsInput = document.getElementById('depositCoinsAmount');
-            
-            if (payBtn) {
-                payBtn.disabled = false;
-                payBtn.innerHTML = '💳 ОПЛАТИТЬ';
-                payBtn.style.opacity = '1';
-            }
-            if (coinsInput) coinsInput.value = 1000;
-            
-            updateDepositConversion();
-            document.getElementById('depositModal').classList.add('active');
-        }
-        
-        function closeDepositModal() {
-            const depositModal = document.getElementById('depositModal');
-            if (depositModal) {
-                depositModal.classList.remove('active');
-            }
-        }
-        
-        function calculateRubles(coins) {
-            return (coins * EXCHANGE_RATE).toFixed(2);
-        }
-        
-        function updateDepositConversion() {
-            const coinsInput = document.getElementById('depositCoinsAmount');
-            let coins = parseInt(coinsInput.value);
-            if (isNaN(coins) || coins < 1) {
-                coins = 1;
-                coinsInput.value = 1;
-            }
-            const rubles = calculateRubles(coins);
-            document.getElementById('depositRubAmount').textContent = `${rubles} ₽`;
-        }
-        
-        function setDepositPreset(amount) {
-            document.getElementById('depositCoinsAmount').value = amount;
-            updateDepositConversion();
-        }
-        
-        async function processDeposit() {
-            const coinsInput = document.getElementById('depositCoinsAmount');
-            let coinsAmount = parseInt(coinsInput.value);
-            
-            if (isNaN(coinsAmount) || coinsAmount < 1) {
-                alert('Введите корректную сумму (минимум 1 крона)');
-                return;
-            }
-            
-            const rubAmount = calculateRubles(coinsAmount);
-            const testMessage = `🧪 ТЕСТОВАЯ ФУНКЦИЯ\n\nСумма: ${coinsAmount.toLocaleString()} крон\nК оплате: ${rubAmount} ₽\n\nЭто тестовый режим. Деньги не будут списаны.\nБаланс будет пополнен автоматически.`;
-            
-            const confirmed = confirm(testMessage + '\n\nПродолжить?');
-            if (!confirmed) return;
-            
-            const payBtn = document.getElementById('depositPayBtn');
-            payBtn.disabled = true;
-            payBtn.innerHTML = '⏳ ОБРАБОТКА...';
-            
-            try {
-                const response = await fetch('/api/auth/add-coins', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username: currentUser, amount: coinsAmount })
-                });
-                
-                const data = await response.json();
-                
-                if (data.success) {
-                    userStats.coins = data.coins;
-                    updateProfileModalDisplay();
-                    updateCompactDisplay();
-                    
-                    closeDepositModal();
-                    showToast(`✅ Пополнено! +${coinsAmount.toLocaleString()} крон (${rubAmount} ₽)`);
-                    
-                    setTimeout(() => {
-                        openProfileModal();
-                    }, 500);
-                } else {
-                    alert(data.error || 'Ошибка при пополнении');
-                    payBtn.disabled = false;
-                    payBtn.innerHTML = '💳 ОПЛАТИТЬ';
-                }
-            } catch (error) {
-                console.error('Ошибка при пополнении:', error);
-                alert('❌ Ошибка соединения с сервером');
-                payBtn.disabled = false;
-                payBtn.innerHTML = '💳 ОПЛАТИТЬ';
-            }
-        }
+        // ФУНКЦИЯ ПОПОЛНЕНИЯ ПОЛНОСТЬЮ УДАЛЕНА (ничего не делает)
         
         function openEditNameModal() {
             closeProfileModal();
@@ -2252,19 +1979,11 @@
                 });
             }
             
-            const depositCoinsInput = document.getElementById('depositCoinsAmount');
-            if (depositCoinsInput) {
-                depositCoinsInput.addEventListener('input', updateDepositConversion);
-            }
-            
             loadLobbyStickers();
             showLobbyChat(false);
             
             document.getElementById('profileModal').addEventListener('click', (e) => {
                 if (e.target === document.getElementById('profileModal')) closeProfileModal();
-            });
-            document.getElementById('depositModal').addEventListener('click', (e) => {
-                if (e.target === document.getElementById('depositModal')) closeDepositModal();
             });
             document.getElementById('editNameModal').addEventListener('click', (e) => {
                 if (e.target === document.getElementById('editNameModal')) closeEditNameModal();
@@ -2272,7 +1991,6 @@
             
             document.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape') {
-                    if (document.getElementById('depositModal').classList.contains('active')) closeDepositModal();
                     if (document.getElementById('profileModal').classList.contains('active')) closeProfileModal();
                     if (document.getElementById('editNameModal').classList.contains('active')) closeEditNameModal();
                 }
