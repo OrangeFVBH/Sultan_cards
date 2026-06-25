@@ -4,8 +4,9 @@ class Game {
     constructor(players, maxPlayers = 3, lobbyId = null, totalPot = 0) {
         this.players = players;
         this.maxPlayers = maxPlayers;
+        // Устанавливаем цель в зависимости от количества игроков
         this.scoreToWin = maxPlayers === 2 ? 5 : 3;
-        this.consecutiveWinsNeeded = 3;
+        this.consecutiveWinsNeeded = maxPlayers === 2 ? 5 : 3;
         this.deck = shuffle(createDeck());
         this.trumpSuit = 'diamonds';
         this.table = [];
@@ -43,8 +44,7 @@ class Game {
         this.dealCards();
         this.findFirstAttacker();
         console.log(`✅ Игра создана. Козырь: ♢ БУБНЫ`);
-        console.log(`👑 Условие победы: выиграть ${this.consecutiveWinsNeeded} раунда ПОДРЯД`);
-        console.log(`⚠️ Если серия побед будет прервана - игра заканчивается НИЧЬЕЙ!`);
+        console.log(`👑 Условие победы: ${maxPlayers === 2 ? '5 побед в общем' : '3 победы подряд'}`);
         console.log(`💰 Банк игры: ${this.totalPot} кранов`);
         console.log(`👥 Режим игры: ${maxPlayers} игрока(ов)`);
     }
@@ -127,6 +127,12 @@ class Game {
     }
 
     startSubRound(loserPlayer, tournamentScores, lobbyId) {
+        // ⚠️ ПРОВЕРКА: Если доп. раунд уже запущен или завершен - пропускаем
+        if (this._subRoundStarted || this._subRoundCompleted) {
+            console.log('⚠️ Дополнительный раунд уже запущен или завершен, пропускаем');
+            return;
+        }
+        
         console.log('========================================');
         console.log('🎯 ЗАПУСК ДОПОЛНИТЕЛЬНОГО РАУНДА');
         console.log('========================================');
@@ -134,6 +140,7 @@ class Game {
         // Размораживаем игру для дополнительного раунда
         this._gameFrozen = false;
         this._roundOverSent = false;
+        this._subRoundStarted = true; // ← Устанавливаем флаг
         
         const loserConsecutive = this._tournamentData.playersConsecutive.get(loserPlayer.username) || 0;
         
@@ -172,6 +179,7 @@ class Game {
         
         if (activePlayers.length !== 2) {
             console.error('❌ Ошибка: должно быть ровно 2 активных игрока');
+            this._subRoundStarted = false;
             return;
         }
         
@@ -688,19 +696,93 @@ class Game {
     }
 
     checkWinCondition() {
-        // Если игра уже заморожена - не проверяем (предотвращает повторные проверки)
+        // Если игра уже заморожена - не проверяем
         if (this._gameFrozen) return false;
         
         const playersWithCards = this.players.filter(p => p.hand.length > 0);
         const playersWithoutCards = this.players.filter(p => p.hand.length === 0);
         
+        // ============ ПРОВЕРКА ДЛЯ 2 ИГРОКОВ ============
+        if (this.maxPlayers === 2) {
+            if (playersWithCards.length === 1 && playersWithoutCards.length === 1) {
+                if (this._roundOverSent) return true;
+                this._roundOverSent = true;
+                this._gameFrozen = true;
+                
+                const loser = playersWithCards[0];
+                const winner = playersWithoutCards[0];
+                
+                this.players.forEach(p => {
+                    if (p.socket && p.socket.connected) {
+                        p.socket.emit('roundOver', {
+                            roundWinner: winner.username,
+                            loser: loser.username,
+                            allWinners: [winner.username],
+                            isSubRound: false,
+                            needSubRound: false
+                        });
+                    }
+                });
+                return true;
+            }
+            
+            if (playersWithCards.length === 0 && !this._roundOverSent) {
+                this._roundOverSent = true;
+                this._gameFrozen = true;
+                
+                this.players.forEach(p => {
+                    if (p.socket && p.socket.connected) {
+                        p.socket.emit('roundOver', {
+                            roundWinner: 'Ничья',
+                            loser: null,
+                            allWinners: this.players.map(w => w.username),
+                            isSubRound: false,
+                            isDraw: true
+                        });
+                    }
+                });
+                return true;
+            }
+            return false;
+        }
+        
+        // ============ ПРОВЕРКА ДЛЯ 3 ИГРОКОВ ============
+        
+        // Проверка для дополнительного раунда
         if (this._previousLoser && playersWithCards.length === 1 && playersWithoutCards.length === 2) {
             if (this._roundOverSent) return true;
             this._roundOverSent = true;
-            this._gameFrozen = true;  // НЕМЕДЛЕННО замораживаем игру
+            this._gameFrozen = true;
             
             const subRoundWinner = playersWithoutCards.find(p => p.username !== this._previousLoser?.username);
             const subRoundLoser = playersWithCards[0];
+            
+            // ⚠️ ПРОВЕРКА: Если у проигравшего в доп. раунде была серия → НИЧЬЯ!
+            const consecutiveInfo = this._tournamentData?.playersConsecutive?.get(subRoundLoser.username) || 0;
+            
+            if (consecutiveInfo >= 1) {
+                console.log(`⚠️ ${subRoundLoser.username} имел серию побед (${consecutiveInfo}), но проиграл в ДОПОЛНИТЕЛЬНОМ раунде! НИЧЬЯ!`);
+                this._isDraw = true;
+                this._drawProcessed = true;
+                
+                this.players.forEach(p => {
+                    if (p.socket && p.socket.connected) {
+                        p.socket.emit('chatMessage', {
+                            username: '⚠️ СИСТЕМА',
+                            message: `${subRoundLoser.username} имел серию из ${consecutiveInfo} побед, но проиграл в дополнительном раунде! Ничья!`
+                        });
+                        p.socket.emit('roundOver', {
+                            roundWinner: 'НИЧЬЯ',
+                            loser: subRoundLoser.username,
+                            allWinners: [],
+                            isSubRound: true,
+                            isDraw: true,
+                            isSeriesBroken: true
+                        });
+                    }
+                });
+                return true;
+            }
             
             this.players.forEach(p => {
                 if (p.socket && p.socket.connected) {
@@ -715,14 +797,43 @@ class Game {
             return true;
         }
         
+        // ============ ОСНОВНОЙ РАУНД (3 игрока) ============
         if (playersWithCards.length === 1 && playersWithoutCards.length >= 1) {
             if (this._roundOverSent) return true;
             this._roundOverSent = true;
-            this._gameFrozen = true;  // НЕМЕДЛЕННО замораживаем игру
+            this._gameFrozen = true;
             
             const loser = playersWithCards[0];
             const winners = playersWithoutCards;
             const roundWinner = winners[0];
+            
+            // ⚠️ ПРОВЕРКА: Если у проигравшего в основном раунде была серия → НИЧЬЯ!
+            const consecutiveInfo = this._tournamentData?.playersConsecutive?.get(loser.username) || 0;
+            
+            if (consecutiveInfo >= 1) {
+                console.log(`⚠️ ${loser.username} имел серию побед (${consecutiveInfo}), но проиграл в основном раунде! НИЧЬЯ!`);
+                this._isDraw = true;
+                this._drawProcessed = true;
+                
+                this.players.forEach(p => {
+                    if (p.socket && p.socket.connected) {
+                        p.socket.emit('chatMessage', {
+                            username: '⚠️ СИСТЕМА',
+                            message: `${loser.username} имел серию из ${consecutiveInfo} побед, но проиграл в основном раунде! Ничья!`
+                        });
+                        p.socket.emit('roundOver', {
+                            roundWinner: 'НИЧЬЯ',
+                            loser: loser.username,
+                            allWinners: [],
+                            isSubRound: false,
+                            isDraw: true,
+                            isSeriesBroken: true,
+                            needSubRound: false
+                        });
+                    }
+                });
+                return true;
+            }
             
             this.players.forEach(p => {
                 if (p.socket && p.socket.connected) {
@@ -738,9 +849,10 @@ class Game {
             return true;
         }
         
+        // Ничья (все сбросили карты)
         if (playersWithCards.length === 0 && !this._roundOverSent) {
             this._roundOverSent = true;
-            this._gameFrozen = true;  // НЕМЕДЛЕННО замораживаем игру
+            this._gameFrozen = true;
             this._isDraw = true;
             
             this.players.forEach(p => {
@@ -757,6 +869,7 @@ class Game {
             return true;
         }
         
+        // Проверка на случай, если атакующий или защитник остался без карт
         const attacker = this.players[this.currentAttackerIndex];
         const defender = this.players[this.currentDefenderIndex];
         
@@ -776,8 +889,60 @@ class Game {
     async checkSultan(lobbyId, tournamentScores, roundWinner, isSubRound = false) {
         if (!tournamentScores) return null;
         
+        // ============ ДЛЯ 2 ИГРОКОВ ============
+        if (this.maxPlayers === 2) {
+            // Накопительный счет до 5 побед (НЕ ПОДРЯД)
+            const currentScore = (tournamentScores.get(roundWinner) || 0) + 1;
+            tournamentScores.set(roundWinner, currentScore);
+            
+            console.log(`📊 Счет 2 игрока: ${roundWinner} = ${currentScore}/5`);
+            
+            // Обновляем счет для всех игроков
+            const scoresObj = Object.fromEntries(tournamentScores);
+            this.players.forEach(p => {
+                if (p.socket && p.socket.connected) {
+                    p.socket.emit('tournamentScoresUpdate', {
+                        scores: scoresObj,
+                        roundWinner: roundWinner,
+                        loser: null,
+                        winTarget: 5,
+                        isSubRound: false,
+                        isTwoPlayerMode: true
+                    });
+                }
+            });
+            
+            // Проверяем, достиг ли игрок 5 побед
+            if (currentScore >= 5) {
+                // Победитель! Начисляем 500 кранов
+                await this.awardWinnerCoins(roundWinner, 500);
+                
+                this.players.forEach(p => {
+                    if (p.socket && p.socket.connected) {
+                        p.socket.emit('sultanDeclared', {
+                            sultan: roundWinner,
+                            scores: scoresObj,
+                            totalPrize: 500,
+                            consecutiveWins: currentScore,
+                            isTwoPlayerMode: true
+                        });
+                        p.socket.emit('chatMessage', {
+                            username: '🏆 СИСТЕМА',
+                            message: `🏆 ${roundWinner} выиграл 5 раундов и получает 500 кранов!`
+                        });
+                    }
+                });
+                
+                return roundWinner;
+            }
+            
+            return null;
+        }
+        
+        // ============ ДЛЯ 3 ИГРОКОВ ============
         const currentConsecutive = this._tournamentData.playersConsecutive.get(roundWinner) || 0;
         
+        // Проверка на прерывание серии (если победитель сменился)
         if (this._tournamentData.lastRoundWinner && 
             this._tournamentData.lastRoundWinner !== roundWinner &&
             this._tournamentData.playersConsecutive.get(this._tournamentData.lastRoundWinner) >= 1) {
@@ -804,16 +969,19 @@ class Game {
             return 'draw';
         }
         
+        // Обновляем серию побед
         const newConsecutive = currentConsecutive + 1;
         this._tournamentData.playersConsecutive.set(roundWinner, newConsecutive);
         this._tournamentData.lastRoundWinner = roundWinner;
         
+        // Сбрасываем серии у других игроков
         for (const [username, _] of this._tournamentData.playersConsecutive) {
             if (username !== roundWinner) {
                 this._tournamentData.playersConsecutive.set(username, 0);
             }
         }
         
+        // Отправляем обновление серий
         const consecutiveInfo = Object.fromEntries(this._tournamentData.playersConsecutive);
         this.players.forEach(p => {
             if (p.socket && p.socket.connected) {
@@ -821,6 +989,7 @@ class Game {
             }
         });
         
+        // Проверяем, достиг ли игрок 3 побед подряд
         if (newConsecutive >= this.consecutiveWinsNeeded) {
             await this.awardWinnerCoins(roundWinner, this.totalPot);
             
@@ -832,35 +1001,40 @@ class Game {
                         consecutiveWins: newConsecutive,
                         totalPrize: this.totalPot
                     });
+                    p.socket.emit('chatMessage', {
+                        username: '👑 СИСТЕМА',
+                        message: `👑 ${roundWinner} стал СУЛТАНОМ и забирает ${this.totalPot} кранов!`
+                    });
                 }
             });
+            
             return roundWinner;
         }
         
         return null;
     }
 
-    async awardWinnerCoins(winnerUsername, totalPot) {
+    async awardWinnerCoins(winnerUsername, amount) {
         try {
             const User = require('./User');
             
             const winner = await User.findOne({ username: winnerUsername });
             if (winner) {
-                winner.coins += totalPot;
+                winner.coins += amount;
                 await winner.save();
+                
+                console.log(`💰 ${winnerUsername} выиграл ${amount} кранов. Новый баланс: ${winner.coins}`);
                 
                 this.players.forEach(p => {
                     if (p.socket && p.socket.connected) {
                         p.socket.emit('chatMessage', {
                             username: '🏆 СИСТЕМА',
-                            message: `${winnerUsername} выиграл ${totalPot} кранов! 👑`
+                            message: `${winnerUsername} выиграл ${amount} кранов! 👑`
                         });
-                        // Обновляем баланс на клиенте
                         p.socket.emit('coinsUpdated', { coins: winner.coins });
                     }
                 });
                 
-                console.log(`💰 ${winnerUsername} выиграл ${totalPot} кранов. Новый баланс: ${winner.coins}`);
                 return true;
             }
             return false;
@@ -873,13 +1047,15 @@ class Game {
     async refundCoinsOnDraw() {
         try {
             const User = require('./User');
-            const refundPerPlayer = Math.floor(this.totalPot / this.players.length);
+            const refundPerPlayer = 500;
             
             for (const player of this.players) {
                 const user = await User.findOne({ username: player.username });
                 if (user) {
                     user.coins += refundPerPlayer;
                     await user.save();
+                    
+                    console.log(`💰 ${player.username} возвращено ${refundPerPlayer} кранов. Новый баланс: ${user.coins}`);
                     
                     if (player.socket && player.socket.connected) {
                         player.socket.emit('coinsUpdated', { coins: user.coins });
@@ -888,7 +1064,6 @@ class Game {
                             message: `Ничья! Вам возвращено ${refundPerPlayer} кранов.`
                         });
                     }
-                    console.log(`💰 ${player.username} возвращено ${refundPerPlayer} кранов. Новый баланс: ${user.coins}`);
                 }
             }
             return true;
