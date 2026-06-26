@@ -22,14 +22,16 @@ async function cleanupDeadLobbies(lobbies, activeGames, tournamentScores, readyS
             // Возвращаем монеты игрокам, если игра уже началась
             if (lobby.status === 'playing') {
                 const game = activeGames.get(id);
-                if (game && game.totalPot > 0) {
-                    const refundPerPlayer = Math.floor(game.totalPot / game.players.length);
+                if (game) {
+                    // ⭐ Возвращаем каждому игроку его ставку (500 кранов)
+                    const refundPerPlayer = 500;
                     for (const player of game.players) {
                         try {
                             const user = await User.findOne({ username: player.username });
                             if (user) {
                                 user.coins += refundPerPlayer;
                                 await user.save();
+                                console.log(`💰 ${player.username} возвращено ${refundPerPlayer} кранов при очистке лобби`);
                             }
                         } catch (error) {
                             console.error('Ошибка возврата монет при очистке:', error);

@@ -896,30 +896,7 @@ function initGameUI() {
     socket.on('roundOver', (data) => {
         console.log('🏁 Раунд окончен:', data);
         
-        // Начисление 100 кранов ТОЛЬКО для 2 игроков
-        const playerCount = currentGameState?.players?.length || 0;
-        
-        if (playerCount === 2 && data.allWinners && data.allWinners.includes(playerName)) {
-            console.log('💰 Победа в режиме 2 игроков! Начисляем +100 кранов');
-            
-            fetch('/api/auth/add-coins', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    username: playerName, 
-                    amount: 100 
-                })
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    console.log(`✅ +100 кранов за победу! Новый баланс: ${data.coins}`);
-                    showToast('🏆 Победа в режиме 2 игроков! +100 кранов!');
-                }
-            })
-            .catch(err => console.error('❌ Ошибка начисления кранов:', err));
-        }
-        // ========== КОНЕЦ НАЧИСЛЕНИЯ ==========
+        // ⭐ ВСЯ ЛОГИКА НАЧИСЛЕНИЯ КРАНОВ УДАЛЕНА - теперь это происходит на сервере!
         
         const statusBar = document.getElementById('statusBar');
         if (statusBar && !statusBar.hasAttribute('data-temp-message')) {
@@ -943,7 +920,7 @@ function initGameUI() {
             statusBar.style.fontSize = '16px';
             statusBar.style.padding = '15px 28px';
         }
-        
+
         // Блокируем карты на время ожидания нового раунда
         const handEl = document.getElementById('myHand');
         if (handEl) {
@@ -954,7 +931,7 @@ function initGameUI() {
                 card.draggable = false;
             });
         }
-        
+
         // Скрываем кнопки действий
         const buttonsDiv = document.getElementById('actionButtons');
         if (buttonsDiv) {

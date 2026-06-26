@@ -90,7 +90,6 @@ class Game {
     startDealingAnimation() {
         console.log('🎴 Запуск анимации раздачи карт');
         
-        // Размораживаем игру перед раздачей
         this._gameFrozen = false;
         this._roundOverSent = false;
         this.dealingComplete = false;
@@ -120,14 +119,13 @@ class Game {
         
         setTimeout(() => {
             this.dealingComplete = true;
-            this._gameFrozen = false;  // Убеждаемся что игра разморожена
+            this._gameFrozen = false;
             this.broadcast();
             console.log('✅ Раздача завершена, игра активна');
         }, 6000);
     }
 
     startSubRound(loserPlayer, tournamentScores, lobbyId) {
-        // ⚠️ ПРОВЕРКА: Если доп. раунд уже запущен или завершен - пропускаем
         if (this._subRoundStarted || this._subRoundCompleted) {
             console.log('⚠️ Дополнительный раунд уже запущен или завершен, пропускаем');
             return;
@@ -137,10 +135,9 @@ class Game {
         console.log('🎯 ЗАПУСК ДОПОЛНИТЕЛЬНОГО РАУНДА');
         console.log('========================================');
         
-        // Размораживаем игру для дополнительного раунда
         this._gameFrozen = false;
         this._roundOverSent = false;
-        this._subRoundStarted = true; // ← Устанавливаем флаг
+        this._subRoundStarted = true;
         
         const loserConsecutive = this._tournamentData.playersConsecutive.get(loserPlayer.username) || 0;
         
@@ -400,11 +397,9 @@ class Game {
         
         console.log(`🛡️ ${defender.username} отбивается картой ${defendCard.rank} ${defendCard.suit} (осталось: ${defender.hand.length})`);
         
-        // Дама завершает ход автоматически
         if (defendCard.rank === 'Q') {
             console.log(`♕ Дама завершает ход!`);
             
-            // Отправляем спецэффект для дамы
             const roomId = this.lobbyId;
             if (roomId) {
                 const io = require('../server');
@@ -426,7 +421,6 @@ class Game {
     endBout(isDraw = false) {
         console.log('🔄 endBout вызван (отбой)');
         
-        // Если на столе есть карты и все они отбиты
         const attackCount = this.table.filter(t => t.type === 'attack').length;
         const defendCount = this.table.filter(t => t.type === 'defend').length;
         const allDefended = attackCount === defendCount && attackCount > 0;
@@ -434,7 +428,6 @@ class Game {
         if (allDefended) {
             console.log('✨ ВСЕ КАРТЫ ОТБИТЫ! Запускаем анимацию разрыва!');
             
-            // Отправляем событие на клиент для анимации
             const roomId = this.lobbyId;
             if (roomId) {
                 const io = require('../server');
@@ -463,11 +456,9 @@ class Game {
         }
         
         if (this.maxPlayers === 2) {
-            // Для игры на двоих: отбивающийся становится атакующим
             this.currentAttackerIndex = this.currentDefenderIndex;
             this.currentDefenderIndex = (this.currentAttackerIndex + 1) % 2;
         } else {
-            // Для игры на троих: отбивающийся становится атакующим
             this.currentAttackerIndex = this.currentDefenderIndex;
             
             let nextDefender = (this.currentAttackerIndex + 1) % this.players.length;
@@ -568,11 +559,9 @@ class Game {
         const playersWithCards = this.players.filter(p => p.hand.length > 0);
         
         if (this.maxPlayers === 2) {
-            // Для игры на двоих: после завершения хода атакующего - сразу отбой
             this.endBout();
             return { success: true, additionalAttack: false };
         } else {
-            // Для игры на троих: после завершения хода атакующего - право подкидывать переходит к третьему игроку
             let thirdIdx = -1;
             for (let i = 0; i < this.players.length; i++) {
                 if (i !== this.currentAttackerIndex && i !== this.currentDefenderIndex && this.players[i].hand.length > 0) {
@@ -586,7 +575,6 @@ class Game {
                 console.log(`✨ Право подкидывания перешло к ${this.players[thirdIdx].username}`);
                 return { success: true, additionalAttack: true };
             } else {
-                // Если третий игрок не может подкинуть - сразу отбой
                 this.endBout();
                 return { success: true, additionalAttack: false };
             }
@@ -598,7 +586,6 @@ class Game {
             return { success: false, error: 'Нет дополнительной атаки' };
         }
         
-        // Проверяем, что подкидывает ТОТ, у кого есть право (третий игрок)
         const allowedPlayer = this.players[this.additionalAttackerIndex];
         if (!allowedPlayer || allowedPlayer.id !== playerId) {
             return { success: false, error: 'Сейчас не ваш ход подкидывать' };
@@ -617,7 +604,6 @@ class Game {
             return { success: false, error: 'Сначала дождитесь отбоя текущей карты!' };
         }
         
-        // Проверяем, можно ли подкинуть эту карту (по рангу)
         const ranksOnTable = new Set(this.table.map(t => t.card.rank));
         if (!ranksOnTable.has(card.rank)) {
             return { success: false, error: 'Можно подкидывать только карты того же достоинства' };
@@ -638,7 +624,6 @@ class Game {
         
         console.log(`➕ ${allowedPlayer.username} подкидывает карту ${card.rank} ${card.suit} (осталось: ${allowedPlayer.hand.length})`);
         
-        // После успешного подкидывания проверяем, может ли третий игрок подкинуть ЕЩЕ
         if (!this.canThirdPlayerAttack(allowedPlayer)) {
             console.log(`✨ ${allowedPlayer.username} больше не может подкидывать`);
             this.additionalAttackerIndex = null;
@@ -696,7 +681,6 @@ class Game {
     }
 
     checkWinCondition() {
-        // Если игра уже заморожена - не проверяем
         if (this._gameFrozen) return false;
         
         const playersWithCards = this.players.filter(p => p.hand.length > 0);
@@ -748,7 +732,6 @@ class Game {
         
         // ============ ПРОВЕРКА ДЛЯ 3 ИГРОКОВ ============
         
-        // Проверка для дополнительного раунда
         if (this._previousLoser && playersWithCards.length === 1 && playersWithoutCards.length === 2) {
             if (this._roundOverSent) return true;
             this._roundOverSent = true;
@@ -757,7 +740,6 @@ class Game {
             const subRoundWinner = playersWithoutCards.find(p => p.username !== this._previousLoser?.username);
             const subRoundLoser = playersWithCards[0];
             
-            // ⚠️ ПРОВЕРКА: Если у проигравшего в доп. раунде была серия → НИЧЬЯ!
             const consecutiveInfo = this._tournamentData?.playersConsecutive?.get(subRoundLoser.username) || 0;
             
             if (consecutiveInfo >= 1) {
@@ -807,7 +789,6 @@ class Game {
             const winners = playersWithoutCards;
             const roundWinner = winners[0];
             
-            // ⚠️ ПРОВЕРКА: Если у проигравшего в основном раунде была серия → НИЧЬЯ!
             const consecutiveInfo = this._tournamentData?.playersConsecutive?.get(loser.username) || 0;
             
             if (consecutiveInfo >= 1) {
@@ -849,7 +830,6 @@ class Game {
             return true;
         }
         
-        // Ничья (все сбросили карты)
         if (playersWithCards.length === 0 && !this._roundOverSent) {
             this._roundOverSent = true;
             this._gameFrozen = true;
@@ -869,7 +849,6 @@ class Game {
             return true;
         }
         
-        // Проверка на случай, если атакующий или защитник остался без карт
         const attacker = this.players[this.currentAttackerIndex];
         const defender = this.players[this.currentDefenderIndex];
         
@@ -886,17 +865,20 @@ class Game {
         return false;
     }
 
+    // ================================================================
+    // ⭐ ГЛАВНЫЙ МЕТОД - НАЧИСЛЕНИЕ КРАНОВ ПРИ ПОБЕДЕ
+    // ================================================================
     async checkSultan(lobbyId, tournamentScores, roundWinner, isSubRound = false) {
         if (!tournamentScores) return null;
-        
+
         // ============ ДЛЯ 2 ИГРОКОВ ============
         if (this.maxPlayers === 2) {
-            // Накопительный счет до 5 побед (НЕ ПОДРЯД)
+            // Накопительный счет до 5 побед
             const currentScore = (tournamentScores.get(roundWinner) || 0) + 1;
             tournamentScores.set(roundWinner, currentScore);
-            
+
             console.log(`📊 Счет 2 игрока: ${roundWinner} = ${currentScore}/5`);
-            
+
             // Обновляем счет для всех игроков
             const scoresObj = Object.fromEntries(tournamentScores);
             this.players.forEach(p => {
@@ -911,12 +893,12 @@ class Game {
                     });
                 }
             });
-            
+
             // Проверяем, достиг ли игрок 5 побед
             if (currentScore >= 5) {
-                // Победитель! Начисляем 500 кранов
+                // ⭐ ПОБЕДИТЕЛЬ! Начисляем 500 кранов ОДНОЙ СУММОЙ
                 await this.awardWinnerCoins(roundWinner, 500);
-                
+
                 this.players.forEach(p => {
                     if (p.socket && p.socket.connected) {
                         p.socket.emit('sultanDeclared', {
@@ -932,16 +914,16 @@ class Game {
                         });
                     }
                 });
-                
+
                 return roundWinner;
             }
-            
+
             return null;
         }
-        
+
         // ============ ДЛЯ 3 ИГРОКОВ ============
         const currentConsecutive = this._tournamentData.playersConsecutive.get(roundWinner) || 0;
-        
+
         // Проверка на прерывание серии (если победитель сменился)
         if (this._tournamentData.lastRoundWinner && 
             this._tournamentData.lastRoundWinner !== roundWinner &&
@@ -965,22 +947,23 @@ class Game {
                 }
             });
             
+            // ⭐ ВОЗВРАЩАЕМ СТАВКУ КАЖДОМУ ИГРОКУ (500 кранов)
             await this.refundCoinsOnDraw();
             return 'draw';
         }
-        
+
         // Обновляем серию побед
         const newConsecutive = currentConsecutive + 1;
         this._tournamentData.playersConsecutive.set(roundWinner, newConsecutive);
         this._tournamentData.lastRoundWinner = roundWinner;
-        
+
         // Сбрасываем серии у других игроков
         for (const [username, _] of this._tournamentData.playersConsecutive) {
             if (username !== roundWinner) {
                 this._tournamentData.playersConsecutive.set(username, 0);
             }
         }
-        
+
         // Отправляем обновление серий
         const consecutiveInfo = Object.fromEntries(this._tournamentData.playersConsecutive);
         this.players.forEach(p => {
@@ -988,32 +971,36 @@ class Game {
                 p.socket.emit('consecutiveUpdate', consecutiveInfo);
             }
         });
-        
+
         // Проверяем, достиг ли игрок 3 побед подряд
         if (newConsecutive >= this.consecutiveWinsNeeded) {
-            await this.awardWinnerCoins(roundWinner, this.totalPot);
-            
+            // ⭐ ПОБЕДИТЕЛЬ! Начисляем ВЕСЬ БАНК (1500 кранов) ОДНОЙ СУММОЙ
+            await this.awardWinnerCoins(roundWinner, 1500);
+
             this.players.forEach(p => {
                 if (p.socket && p.socket.connected) {
                     p.socket.emit('sultanDeclared', {
                         sultan: roundWinner,
                         scores: Object.fromEntries(tournamentScores),
                         consecutiveWins: newConsecutive,
-                        totalPrize: this.totalPot
+                        totalPrize: 1500
                     });
                     p.socket.emit('chatMessage', {
                         username: '👑 СИСТЕМА',
-                        message: `👑 ${roundWinner} стал СУЛТАНОМ и забирает ${this.totalPot} кранов!`
+                        message: `👑 ${roundWinner} стал СУЛТАНОМ и забирает 1500 кранов!`
                     });
                 }
             });
-            
+
             return roundWinner;
         }
-        
+
         return null;
     }
 
+    // ================================================================
+    // ⭐ НАЧИСЛЕНИЕ КРАНОВ ПОБЕДИТЕЛЮ (ОБЩИЙ МЕТОД)
+    // ================================================================
     async awardWinnerCoins(winnerUsername, amount) {
         try {
             const User = require('./User');
@@ -1025,13 +1012,14 @@ class Game {
                 
                 console.log(`💰 ${winnerUsername} выиграл ${amount} кранов. Новый баланс: ${winner.coins}`);
                 
+                // Отправляем обновление баланса ВСЕМ игрокам
                 this.players.forEach(p => {
                     if (p.socket && p.socket.connected) {
+                        p.socket.emit('coinsUpdated', { coins: winner.coins });
                         p.socket.emit('chatMessage', {
                             username: '🏆 СИСТЕМА',
                             message: `${winnerUsername} выиграл ${amount} кранов! 👑`
                         });
-                        p.socket.emit('coinsUpdated', { coins: winner.coins });
                     }
                 });
                 
@@ -1044,9 +1032,13 @@ class Game {
         }
     }
 
+    // ================================================================
+    // ⭐ ВОЗВРАТ СТАВКИ ПРИ НИЧЬЕ (ОБЩИЙ МЕТОД)
+    // ================================================================
     async refundCoinsOnDraw() {
         try {
             const User = require('./User');
+            // Возвращаем каждому игроку его ставку (500 кранов)
             const refundPerPlayer = 500;
             
             for (const player of this.players) {
@@ -1086,13 +1078,10 @@ class Game {
             isMyAdditionalAttackTurn = false;
             isMyTurnDefend = false;
         } else if (this.additionalAttackerIndex !== null) {
-            // Фаза подкидывания от третьего игрока
-            // Подкидывать может только ТРЕТИЙ игрок
             isMyAdditionalAttackTurn = (myIndex === this.additionalAttackerIndex);
             isMyTurnAttack = false;
             isMyTurnDefend = (myIndex === this.currentDefenderIndex);
         } else {
-            // Обычная фаза - атакует и подкидывает АТАКУЮЩИЙ
             isMyTurnAttack = (myIndex === this.currentAttackerIndex);
             isMyTurnDefend = (myIndex === this.currentDefenderIndex);
             isMyAdditionalAttackTurn = false;
@@ -1146,6 +1135,7 @@ class Game {
             }
         });
     }
+    
     cleanupLobbyAfterGame(lobbyId) {
         const io = require('../server');
         const lobbies = global.lobbies || new Map();
@@ -1176,7 +1166,5 @@ class Game {
         }
     }
 }
-
-
 
 module.exports = Game;
