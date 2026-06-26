@@ -126,6 +126,7 @@ class Game {
     }
 
     startSubRound(loserPlayer, tournamentScores, lobbyId) {
+        // Проверка: если доп. раунд уже запущен или завершен - пропускаем
         if (this._subRoundStarted || this._subRoundCompleted) {
             console.log('⚠️ Дополнительный раунд уже запущен или завершен, пропускаем');
             return;
@@ -135,9 +136,11 @@ class Game {
         console.log('🎯 ЗАПУСК ДОПОЛНИТЕЛЬНОГО РАУНДА');
         console.log('========================================');
         
+        // Размораживаем игру для дополнительного раунда
         this._gameFrozen = false;
         this._roundOverSent = false;
         this._subRoundStarted = true;
+        this._subRoundCompleted = false; // ⭐ Убеждаемся что флаг сброшен
         
         const loserConsecutive = this._tournamentData.playersConsecutive.get(loserPlayer.username) || 0;
         
@@ -246,7 +249,10 @@ class Game {
         
         setTimeout(() => {
             this.dealingComplete = true;
+            this._gameFrozen = false;
+            this._subRoundStarted = true; // ⭐ Оставляем флаг включенным
             this.broadcast();
+            console.log('✅ Дополнительный раунд начат, игра активна');
         }, 6000);
     }
 
@@ -262,7 +268,7 @@ class Game {
         this._gameFrozen = false;
         this._roundWinner = null;
         this._subRoundCompleted = false;
-        this._subRoundStarted = false;
+        this._subRoundStarted = false; // ⭐ Сбрасываем флаг
         this._subRoundFinished = false;
         this._roundFinished = false;
         this._drawProcessed = false;
@@ -732,51 +738,88 @@ class Game {
         
         // ============ ПРОВЕРКА ДЛЯ 3 ИГРОКОВ ============
         
-        if (this._previousLoser && playersWithCards.length === 1 && playersWithoutCards.length === 2) {
-            if (this._roundOverSent) return true;
-            this._roundOverSent = true;
-            this._gameFrozen = true;
+        // ⭐ ПРОВЕРКА ДЛЯ ДОПОЛНИТЕЛЬНОГО РАУНДА
+        // В дополнительном раунде участвуют 2 игрока (без дилера)
+        if (this._previousLoser) {
+            // Находим активных игроков (исключая дилера)
+            const activePlayers = this.players.filter(p => p.username !== this._previousLoser.username);
+            const activeWithCards = activePlayers.filter(p => p.hand.length > 0);
+            const activeWithoutCards = activePlayers.filter(p => p.hand.length === 0);
             
-            const subRoundWinner = playersWithoutCards.find(p => p.username !== this._previousLoser?.username);
-            const subRoundLoser = playersWithCards[0];
-            
-            const consecutiveInfo = this._tournamentData?.playersConsecutive?.get(subRoundLoser.username) || 0;
-            
-            if (consecutiveInfo >= 1) {
-                console.log(`⚠️ ${subRoundLoser.username} имел серию побед (${consecutiveInfo}), но проиграл в ДОПОЛНИТЕЛЬНОМ раунде! НИЧЬЯ!`);
-                this._isDraw = true;
-                this._drawProcessed = true;
+            // Если один из активных игроков сбросил все карты - он победитель
+            if (activeWithoutCards.length === 1 && activeWithCards.length === 1) {
+                if (this._roundOverSent) return true;
+                this._roundOverSent = true;
+                this._gameFrozen = true;
                 
+                const subRoundWinner = activeWithoutCards[0];
+                const subRoundLoser = activeWithCards[0];
+                
+                // Проверяем, есть ли у проигравшего серия побед
+                const consecutiveInfo = this._tournamentData?.playersConsecutive?.get(subRoundLoser.username) || 0;
+                
+                if (consecutiveInfo >= 1) {
+                    console.log(`⚠️ ${subRoundLoser.username} имел серию побед (${consecutiveInfo}), но проиграл в ДОПОЛНИТЕЛЬНОМ раунде! НИЧЬЯ!`);
+                    this._isDraw = true;
+                    this._drawProcessed = true;
+                    
+                    this.players.forEach(p => {
+                        if (p.socket && p.socket.connected) {
+                            p.socket.emit('chatMessage', {
+                                username: '⚠️ СИСТЕМА',
+                                message: `${subRoundLoser.username} имел серию из ${consecutiveInfo} побед, но проиграл в дополнительном раунде! Ничья!`
+                            });
+                            p.socket.emit('roundOver', {
+                                roundWinner: 'НИЧЬЯ',
+                                loser: subRoundLoser.username,
+                                allWinners: [],
+                                isSubRound: true,
+                                isDraw: true,
+                                isSeriesBroken: true
+                            });
+                        }
+                    });
+                    return true;
+                }
+                
+                // ⭐ ОТПРАВЛЯЕМ СОБЫТИЕ О ЗАВЕРШЕНИИ ДОП. РАУНДА
                 this.players.forEach(p => {
                     if (p.socket && p.socket.connected) {
-                        p.socket.emit('chatMessage', {
-                            username: '⚠️ СИСТЕМА',
-                            message: `${subRoundLoser.username} имел серию из ${consecutiveInfo} побед, но проиграл в дополнительном раунде! Ничья!`
-                        });
                         p.socket.emit('roundOver', {
-                            roundWinner: 'НИЧЬЯ',
+                            roundWinner: subRoundWinner.username,
                             loser: subRoundLoser.username,
-                            allWinners: [],
+                            allWinners: [subRoundWinner.username],
                             isSubRound: true,
-                            isDraw: true,
-                            isSeriesBroken: true
+                            needSubRound: false
                         });
                     }
                 });
                 return true;
             }
             
-            this.players.forEach(p => {
-                if (p.socket && p.socket.connected) {
-                    p.socket.emit('roundOver', {
-                        roundWinner: subRoundWinner?.username || 'Неизвестно',
-                        loser: subRoundLoser?.username || 'Неизвестно',
-                        allWinners: [subRoundWinner?.username],
-                        isSubRound: true
-                    });
-                }
-            });
-            return true;
+            // Если оба активных игрока сбросили карты - ничья в доп.раунде
+            if (activeWithoutCards.length === 2 && activeWithCards.length === 0) {
+                if (this._roundOverSent) return true;
+                this._roundOverSent = true;
+                this._gameFrozen = true;
+                this._isDraw = true;
+                
+                this.players.forEach(p => {
+                    if (p.socket && p.socket.connected) {
+                        p.socket.emit('roundOver', {
+                            roundWinner: 'Ничья в доп.раунде',
+                            loser: null,
+                            allWinners: activeWithoutCards.map(w => w.username),
+                            isSubRound: true,
+                            isDraw: true
+                        });
+                    }
+                });
+                return true;
+            }
+            
+            // Если доп.раунд еще не завершен - продолжаем
+            return false;
         }
         
         // ============ ОСНОВНОЙ РАУНД (3 игрока) ============
@@ -816,6 +859,7 @@ class Game {
                 return true;
             }
             
+            // ⭐ ОТПРАВЛЯЕМ СОБЫТИЕ О ЗАВЕРШЕНИИ ОСНОВНОГО РАУНДА
             this.players.forEach(p => {
                 if (p.socket && p.socket.connected) {
                     p.socket.emit('roundOver', {
@@ -830,6 +874,7 @@ class Game {
             return true;
         }
         
+        // Ничья (все сбросили карты)
         if (playersWithCards.length === 0 && !this._roundOverSent) {
             this._roundOverSent = true;
             this._gameFrozen = true;
@@ -849,6 +894,7 @@ class Game {
             return true;
         }
         
+        // Проверка на случай, если атакующий или защитник остался без карт
         const attacker = this.players[this.currentAttackerIndex];
         const defender = this.players[this.currentDefenderIndex];
         

@@ -1,6 +1,7 @@
 let isMyAttackTurn = false;
 let isMyDefendTurn = false;
 let isMyAdditionalAttackTurn = false;
+let isGameOver = false;
 let myHand = [];
 let tableCards = [];
 let socket = null;
@@ -32,6 +33,8 @@ let actionTimeout = null;
 
 // Турнирные очки
 let tournamentScores = {};
+
+let _forceLeaveExecuted = false;
 
 // Функция для обновления положения кнопок в зависимости от количества карт
 function updateButtonsPositionByCardCount() {
@@ -399,6 +402,12 @@ function forceUpdateStatusBar() {
 
 // ================== АНИМАЦИЯ ВЗЯТИЯ КАРТ ==================
 function animateTakeCards(tableCardsArray, targetPlayerName) {
+    // Проверка: если игра завершена - пропускаем анимацию
+    if (isGameOver || _forceLeaveExecuted) {
+        console.log('⏭️ Пропускаем анимацию взятия карт (игра завершена)');
+        return;
+    }
+    
     console.log('🎬 Запуск анимации взятия карт для', targetPlayerName);
     
     const tableZone = document.getElementById('tableZone');
@@ -705,6 +714,12 @@ function createEnhancedTrailEffect(startX, startY, endX, endY) {
 
 // ================== АНИМАЦИЯ КАРТЫ ДРУГОГО ИГРОКА ==================
 function animateCardFromPlayerToTable(data) {
+    // Проверка: если игра завершена - пропускаем анимацию
+    if (isGameOver || _forceLeaveExecuted) {
+        console.log('⏭️ Пропускаем анимацию карты (игра завершена)');
+        return;
+    }
+    
     let playerRect = null;
     
     const players = document.querySelectorAll('.player-badge');
@@ -892,11 +907,36 @@ function initGameUI() {
         requestGameState();
     });
 
-    // ========== НАЧИСЛЕНИЕ 100 КРАНОВ ТОЛЬКО ДЛЯ 2 ИГРОКОВ ==========
+    socket.on('gameStarted', (data) => {
+        console.log('🎮 Получен сигнал gameStarted, lobbyId:', data.lobbyId);
+        if (data.winTarget) winTarget = data.winTarget;
+        currentLobbyId = data.lobbyId;
+        sessionStorage.setItem('currentLobbyId', data.lobbyId);
+        socket.currentLobby = data.lobbyId;
+        
+        if (data.tournamentScores) {
+            tournamentScores = data.tournamentScores;
+            updateTournamentDisplay();
+        }
+        
+        updateLoadingProgress(60, 'Игра запущена! Ожидание раздачи...');
+    });
+
+    socket.on('dealAnimation', (data) => {
+        console.log('🎴 Получена команда на анимацию раздачи:', data);
+        hideLoadingScreen();
+        startDealingAnimation(data);
+    });
+
+    socket.on('gameState', (state) => {
+        console.log('📦 Game state received!', state);
+        hideLoadingScreen();
+        updateGameState(state);
+    });
+
+    // ============ ОБРАБОТЧИК ЗАВЕРШЕНИЯ РАУНДА (БЕЗ НАЧИСЛЕНИЯ КРАНОВ) ============
     socket.on('roundOver', (data) => {
         console.log('🏁 Раунд окончен:', data);
-        
-        // ⭐ ВСЯ ЛОГИКА НАЧИСЛЕНИЯ КРАНОВ УДАЛЕНА - теперь это происходит на сервере!
         
         const statusBar = document.getElementById('statusBar');
         if (statusBar && !statusBar.hasAttribute('data-temp-message')) {
@@ -938,34 +978,7 @@ function initGameUI() {
             buttonsDiv.style.display = 'none';
         }
     });
-    
-    socket.on('gameStarted', (data) => {
-        console.log('🎮 Получен сигнал gameStarted, lobbyId:', data.lobbyId);
-        if (data.winTarget) winTarget = data.winTarget;
-        currentLobbyId = data.lobbyId;
-        sessionStorage.setItem('currentLobbyId', data.lobbyId);
-        socket.currentLobby = data.lobbyId;
-        
-        if (data.tournamentScores) {
-            tournamentScores = data.tournamentScores;
-            updateTournamentDisplay();
-        }
-        
-        updateLoadingProgress(60, 'Игра запущена! Ожидание раздачи...');
-    });
-    
-    socket.on('dealAnimation', (data) => {
-        console.log('🎴 Получена команда на анимацию раздачи:', data);
-        hideLoadingScreen();
-        startDealingAnimation(data);
-    });
-    
-    socket.on('gameState', (state) => {
-        console.log('📦 Game state received!', state);
-        hideLoadingScreen();
-        updateGameState(state);
-    });
-    
+
     socket.on('tournamentScoresUpdate', (data) => {
         if (data.winTarget) winTarget = data.winTarget;
         console.log('📊 Обновление очков:', data);
@@ -987,36 +1000,14 @@ function initGameUI() {
             statusBar.style.borderLeft = '6px solid #ffd700';
         }
     });
-    
-    socket.on('roundOver', (data) => {
-        console.log('🏁 Раунд окончен:', data);
-        
-        const statusBar = document.getElementById('statusBar');
-        if (statusBar && !statusBar.hasAttribute('data-temp-message')) {
-            if (data.allWinners && data.allWinners.includes(playerName)) {
-                if (data.roundWinner === playerName) {
-                    statusBar.innerHTML = `🏆 ВЫ ПОБЕДИЛИ В РАУНДЕ! 🏆<br><span style="font-size:12px">Вы первым сбросили все карты!</span>`;
-                } else {
-                    statusBar.innerHTML = `✅ ВЫ СБРОСИЛИ ВСЕ КАРТЫ! ✅<br><span style="font-size:12px">Ожидание окончания раунда...</span>`;
-                }
-            } else {
-                if (data.loser === playerName) {
-                    statusBar.innerHTML = `💀 ВЫ ОСТАЛИСЬ ДУРАКОМ 💀<br><span style="font-size:12px">У вас остались карты на руках</span>`;
-                } else {
-                    statusBar.innerHTML = `📊 Раунд завершен. Победитель: ${data.roundWinner}<br><span style="font-size:12px">Ожидание нового раунда...</span>`;
-                }
-            }
-            statusBar.style.background = 'linear-gradient(135deg, #d4af37, #b8860b)';
-            statusBar.style.color = '#1a0f08';
-            statusBar.style.borderLeft = '6px solid #ffd700';
-            statusBar.style.fontWeight = 'bold';
-            statusBar.style.fontSize = '16px';
-            statusBar.style.padding = '15px 28px';
-        }
-    });
-    
+
     socket.on('takeCardsAnimation', (data) => {
         console.log('🎬 Получена анимация взятия карт:', data);
+        
+        if (isGameOver || _forceLeaveExecuted) {
+            console.log('⏭️ Пропускаем анимацию взятия карт (игра завершена)');
+            return;
+        }
         
         const statusBar = document.getElementById('statusBar');
         
@@ -1062,9 +1053,14 @@ function initGameUI() {
             }
         }
     });
-    
+
     socket.on('cardAnimation', (data) => {
         console.log('🎬 Получена анимация карты от сервера:', data);
+        
+        if (isGameOver || _forceLeaveExecuted) {
+            console.log('⏭️ Пропускаем анимацию карты (игра завершена)');
+            return;
+        }
         
         if (data.playerUsername === playerName) {
             console.log('⏩ Пропускаем анимацию для себя (уже обработана локально)');
@@ -1073,9 +1069,11 @@ function initGameUI() {
         
         animateCardFromPlayerToTable(data);
     });
-    
+
     socket.on('sultanDeclared', (data) => {
         console.log('👑 СУЛТАН ОБЪЯВЛЕН!', data);
+        
+        if (_forceLeaveExecuted) return;
         
         const statusBar = document.getElementById('statusBar');
         if (statusBar && !statusBar.hasAttribute('data-temp-message')) {
@@ -1092,14 +1090,80 @@ function initGameUI() {
         }
         
         updateTournamentDisplay();
+        isGameOver = true;
+    });
+
+    // ============ ПРИНУДИТЕЛЬНЫЙ ВЫХОД ИЗ ИГРЫ ============
+    socket.on('forceLeaveLobby', (data) => {
+        console.log('🚪 Принудительный выход из игры:', data);
         
+        _forceLeaveExecuted = true;
+        isGameOver = true;
+        
+        // Показываем сообщение пользователю
+        const statusBar = document.getElementById('statusBar');
+        if (statusBar) {
+            statusBar.innerHTML = '🔚 ' + (data.message || 'Игра завершена');
+            statusBar.style.background = 'linear-gradient(135deg, #d4af37, #b8860b)';
+            statusBar.style.color = '#1a0f08';
+            statusBar.style.fontWeight = 'bold';
+            statusBar.style.padding = '20px 30px';
+            statusBar.style.fontSize = '18px';
+            statusBar.style.borderLeft = '6px solid #ffd700';
+        }
+        
+        // Очищаем локальные данные
+        sessionStorage.removeItem('currentLobbyId');
+        currentLobbyId = null;
+        currentGameState = null;
+        
+        // Блокируем карты
+        const handEl = document.getElementById('myHand');
+        if (handEl) {
+            handEl.innerHTML = '<div style="color: #d4af37; font-size: 18px; text-align: center; padding: 20px;">⏳ Возврат в лобби...</div>';
+        }
+        
+        // Скрываем кнопки действий
+        const buttonsDiv = document.getElementById('actionButtons');
+        if (buttonsDiv) {
+            buttonsDiv.style.display = 'none';
+        }
+        
+        // Перенаправляем в лобби через 1.5 секунды
         setTimeout(() => {
             window.location.href = '/lobby.html';
-        }, 5000);
+        }, 1500);
     });
-    
+
+    socket.on('lobbyLeft', (data) => {
+        console.log('🚪 Выход из лобби:', data);
+        
+        if (data && data.force) {
+            _forceLeaveExecuted = true;
+            isGameOver = true;
+            sessionStorage.removeItem('currentLobbyId');
+            currentLobbyId = null;
+            currentGameState = null;
+            
+            setTimeout(() => {
+                window.location.href = '/lobby.html';
+            }, 1000);
+        }
+    });
+
+    socket.on('redirectToLobbyList', () => {
+        console.log('🔄 Перенаправление в лобби');
+        sessionStorage.removeItem('currentLobbyId');
+        currentLobbyId = null;
+        currentGameState = null;
+        window.location.href = '/lobby.html';
+    });
+
     socket.on('gameOver', (data) => {
         console.log('🏁 Game over:', data);
+        
+        if (_forceLeaveExecuted) return;
+        
         let message = '';
         const isWinner = data.isWinner || (data.winner && data.winner.includes(playerName));
         
@@ -1107,8 +1171,8 @@ function initGameUI() {
             message = `Игра прервана!\nИгрок ${data.disconnectedPlayer} отключился.`;
         } else if (isWinner) {
             message = `🏆 ПОБЕДА! 🏆\n${data.winner}`;
-        } else if (data.winner === 'Ничья - все победители!') {
-            message = `🤝 НИЧЬЯ! 🤝\n${data.winner}`;
+        } else if (data.winner === 'Ничья - все победители!' || data.winner === 'Ничья - серия прервана' || data.isDraw) {
+            message = `🤝 НИЧЬЯ! 🤝\n${data.winner || 'Игра завершена ничьей'}`;
         } else {
             message = `😢 Вы проиграли!\nПобедитель: ${data.winner}`;
         }
@@ -1118,52 +1182,33 @@ function initGameUI() {
             statusBar.innerHTML = message.replace(/\n/g, '<br>');
             statusBar.style.background = 'linear-gradient(135deg, #d4af37, #b8860b)';
             statusBar.style.color = '#1a0f08';
+            statusBar.style.padding = '20px 30px';
+            statusBar.style.fontSize = '18px';
+            statusBar.style.fontWeight = 'bold';
+            statusBar.style.borderLeft = '6px solid #ffd700';
         }
         
+        // Блокируем карты
+        const handEl = document.getElementById('myHand');
+        if (handEl) {
+            handEl.innerHTML = '<div style="color: #d4af37; font-size: 18px; text-align: center; padding: 20px;">⏳ Возврат в лобби...</div>';
+        }
+        
+        // Скрываем кнопки действий
+        const buttonsDiv = document.getElementById('actionButtons');
+        if (buttonsDiv) {
+            buttonsDiv.style.display = 'none';
+        }
+        
+        isGameOver = true;
+        
+        // Перенаправляем в лобби через 3 секунды (если не было forceLeaveLobby)
         setTimeout(() => {
-            window.location.href = '/lobby.html';
+            if (!_forceLeaveExecuted) {
+                sessionStorage.removeItem('currentLobbyId');
+                window.location.href = '/lobby.html';
+            }
         }, 3000);
-    });
-    
-    socket.on('error', (error) => {
-        console.error('❌ Socket error:', error);
-        hideLoadingScreen();
-        const statusBar = document.getElementById('statusBar');
-        if (statusBar) {
-            statusBar.innerHTML = `⚠️ ${error}`;
-            statusBar.style.background = 'rgba(139, 0, 0, 0.9)';
-        }
-    });
-    
-    socket.on('disconnect', (reason) => {
-        console.log('🔌 Socket disconnected. Reason:', reason);
-        gameReady = false;
-        const statusBar = document.getElementById('statusBar');
-        if (statusBar && !statusBar.hasAttribute('data-temp-message')) {
-            statusBar.innerHTML = '⚠️ Потеря соединения. Переподключение...';
-            statusBar.style.background = 'rgba(139, 0, 0, 0.7)';
-        }
-    });
-    
-    socket.on('reconnect', (attemptNumber) => {
-        console.log('🔄 Переподключение успешно (попытка ' + attemptNumber + ')');
-        gameReady = true;
-        
-        const statusBar = document.getElementById('statusBar');
-        if (statusBar && !statusBar.hasAttribute('data-temp-message')) {
-            statusBar.innerHTML = '✅ Соединение восстановлено!';
-            statusBar.style.background = 'rgba(10, 6, 4, 0.92)';
-        }
-        
-        socket.currentLobby = currentLobbyId;
-        socket.currentUsername = playerName;
-        
-        socket.emit('reconnectToGame', {
-            username: playerName,
-            lobbyId: currentLobbyId
-        });
-        
-        requestGameState();
     });
 
     socket.on('consecutiveUpdate', (consecutiveInfo) => {
@@ -1174,6 +1219,8 @@ function initGameUI() {
 
     socket.on('allCardsDefeated', (data) => {
         console.log('✨ Получена команда на анимацию отбивания всех карт! Карт:', data.cardCount);
+        
+        if (isGameOver || _forceLeaveExecuted) return;
         
         const statusBar = document.getElementById('statusBar');
         if (statusBar && !statusBar.hasAttribute('data-temp-message')) {
@@ -1195,6 +1242,8 @@ function initGameUI() {
 
     socket.on('queenDefeated', (data) => {
         console.log('👑 ДАМА ЗАВЕРШИЛА ХОД! Спецэффект!', data);
+        
+        if (isGameOver || _forceLeaveExecuted) return;
         
         const tableZone = document.getElementById('tableZone');
         if (tableZone) {
@@ -1256,6 +1305,58 @@ function initGameUI() {
             }, 1500);
         }
     });
+
+    socket.on('error', (error) => {
+        console.error('❌ Socket error:', error);
+        hideLoadingScreen();
+        const statusBar = document.getElementById('statusBar');
+        if (statusBar) {
+            statusBar.innerHTML = `⚠️ ${error}`;
+            statusBar.style.background = 'rgba(139, 0, 0, 0.9)';
+        }
+    });
+
+    socket.on('disconnect', (reason) => {
+        console.log('🔌 Socket disconnected. Reason:', reason);
+        gameReady = false;
+        const statusBar = document.getElementById('statusBar');
+        if (statusBar && !statusBar.hasAttribute('data-temp-message')) {
+            statusBar.innerHTML = '⚠️ Потеря соединения. Переподключение...';
+            statusBar.style.background = 'rgba(139, 0, 0, 0.7)';
+        }
+    });
+
+    socket.on('reconnect', (attemptNumber) => {
+        console.log('🔄 Переподключение успешно (попытка ' + attemptNumber + ')');
+        gameReady = true;
+        
+        if (isGameOver || _forceLeaveExecuted) return;
+        
+        const statusBar = document.getElementById('statusBar');
+        if (statusBar && !statusBar.hasAttribute('data-temp-message')) {
+            statusBar.innerHTML = '✅ Соединение восстановлено!';
+            statusBar.style.background = 'rgba(10, 6, 4, 0.92)';
+        }
+        
+        socket.currentLobby = currentLobbyId;
+        socket.currentUsername = playerName;
+        
+        socket.emit('reconnectToGame', {
+            username: playerName,
+            lobbyId: currentLobbyId
+        });
+        
+        requestGameState();
+    });
+
+    socket.on('coinsUpdated', (data) => {
+        if (data.coins !== undefined) {
+            userStats.coins = data.coins;
+            updateProfileModalDisplay();
+            updateCompactDisplay();
+        }
+    });
+    
     
     function requestGameState() {
         stateRequestCount = 0;
@@ -2674,6 +2775,12 @@ function renderActionButtons(state) {
 
 // ================== АНИМАЦИЯ ОТБИВАНИЯ ВСЕХ КАРТ ==================
 function animateAllCardsDefeated() {
+    // Проверка: если игра завершена - пропускаем анимацию
+    if (isGameOver || _forceLeaveExecuted) {
+        console.log('⏭️ Пропускаем анимацию отбивания карт (игра завершена)');
+        return;
+    }
+    
     console.log('✨ Анимация отбивания всех карт!');
     
     const gameContainer = document.getElementById('gameContainer');
