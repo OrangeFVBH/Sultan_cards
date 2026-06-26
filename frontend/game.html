@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
     <title>Sultan Cards</title>
     <link rel="stylesheet" href="css/style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Playfair+Display:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght=400;500;600;700&family=Playfair+Display:wght=400;600;700&display=swap" rel="stylesheet">
     <style>
         /* Стили для чата */
         .chat-container {
@@ -19,7 +19,12 @@
             border: 2px solid #d4af37;
             box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
             z-index: 1000;
-            transition: all 0.3s ease;
+            /* Плавные переходы размеров, скругления углов и прозрачности */
+            transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+                        height 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+                        border-radius 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+                        opacity 0.3s ease, 
+                        transform 0.2s ease;
         }
         
         .chat-header {
@@ -314,6 +319,67 @@
         
         .player-badge {
             position: relative;
+        }
+
+        /* ======================================================= */
+        /* СТИЛИ ДЛЯ ПК-ВЕРСИИ: Увеличенная кнопка и перетаскивание */
+        /* ======================================================= */
+        @media (min-width: 769px) {
+            /* Свернутое состояние чата на ПК (УВЕЛИЧЕНО до 68x68px) */
+            .chat-container.collapsed {
+                width: 68px !important;
+                height: 68px !important;
+                border-radius: 50% !important;
+                overflow: hidden !important;
+                padding: 0 !important;
+                background: linear-gradient(145deg, #1a5c3a, #0e3a22) !important;
+                border: 2.5px solid #e6b422 !important;
+                box-shadow: 0 6px 22px rgba(0,0,0,0.6), 0 0 0 3px rgba(230, 180, 34, 0.3) !important;
+                cursor: grab;
+                display: block !important;
+            }
+
+            .chat-container.collapsed:active {
+                cursor: grabbing;
+            }
+
+            .chat-container.collapsed .chat-header {
+                height: 100% !important;
+                padding: 0 !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                background: transparent !important;
+                border: none !important;
+            }
+
+            /* Скрываем всё лишнее, когда чат на ПК свернут */
+            .chat-container.collapsed .chat-header h3,
+            .chat-container.collapsed .chat-header .chat-status {
+                display: none !important;
+            }
+
+            /* Показываем круглую иконку (УВЕЛИЧЕН смайлик до 32px) */
+            .chat-container.collapsed .chat-icon-mobile {
+                display: block !important;
+                font-size: 32px !important;
+                color: #e6b422 !important;
+                line-height: 1 !important;
+            }
+
+            .chat-container.collapsed .chat-messages,
+            .chat-container.collapsed .chat-input-area,
+            .chat-container.collapsed .sticker-panel {
+                display: none !important;
+            }
+
+            /* Шапка открытого чата на ПК становится ручкой для таскания */
+            .chat-container:not(.collapsed) .chat-header {
+                cursor: grab;
+            }
+            .chat-container:not(.collapsed) .chat-header:active {
+                cursor: grabbing;
+            }
         }
 
         /* ========================================== */
@@ -856,21 +922,20 @@
         </div>
     </div>
 
-    <!-- Чат компонент с иконкой для телефона -->
-    <!-- На ПК чат открыт по умолчанию (без класса collapsed), на телефоне - свернут -->
-    <div class="chat-container" id="chatContainer">
+    <!-- Чат компонент (изначально скрыт под классом collapsed) -->
+    <div class="chat-container collapsed" id="chatContainer">
         <div class="chat-header" onclick="toggleChat()">
             <div class="chat-icon-mobile">💬</div>
             <h3>💬 ЧАТ</h3>
             <span class="chat-status" id="chatStatus">●</span>
         </div>
-        <div class="chat-messages" id="chatMessages">
+        <div class="chat-messages" id="chatMessages" style="display: none;">
             <div class="chat-message other">
                 <div class="message-sender">🤵 Система</div>
                 <div class="message-bubble">Добро пожаловать в Sultan! Используйте стикеры и чат для общения 🎴</div>
             </div>
         </div>
-        <div class="chat-input-area">
+        <div class="chat-input-area" style="display: none;">
             <input type="text" class="chat-input" id="chatInput" placeholder="Введите сообщение..." maxlength="100">
             <button class="chat-send-btn" onclick="sendChatMessage()">➤</button>
             <button class="sticker-btn" onclick="toggleStickerPanel()">😊</button>
@@ -882,17 +947,10 @@
     <script src="js/gameUI.js"></script>
     <script>
         // Глобальные переменные для чата
-        let chatCollapsed = false; // По умолчанию НЕ свернут (открыт) на ПК
+        let chatCollapsed = true; // По умолчанию чат СВЕРНУТ (скрыт) везде (и на ПК, и на телефонах)
         let currentPlayerName = null;
         let currentChatSocket = null;
         let isMobile = window.innerWidth <= 768;
-        
-        // Если это телефон - изначально чат должен быть свернут
-        if (isMobile) {
-            chatCollapsed = true;
-            const container = document.getElementById('chatContainer');
-            if (container) container.classList.add('collapsed');
-        }
         
         const urlParams = new URLSearchParams(window.location.search);
         const lobbyId = urlParams.get('lobbyId');
@@ -915,34 +973,45 @@
             
             if (!container) return;
             
-            // Для ПК - используем старую логику (display: none/flex)
+            // Если мы только что перетаскивали контейнер на ПК, клик (разворачивание) игнорируем!
+            if (container.dataset.dragged === "true") return;
+            
+            // Для ПК - плавная смена состояний и стилей
             if (!isMobileNow) {
                 if (!chatCollapsed) {
                     if (messages) messages.style.display = 'none';
                     if (inputArea) inputArea.style.display = 'none';
                     if (stickerPanel) stickerPanel.classList.remove('active');
-                    if (container) container.classList.add('collapsed');
+                    container.classList.add('collapsed');
                     chatCollapsed = true;
                 } else {
+                    container.classList.remove('collapsed');
                     if (messages) messages.style.display = 'flex';
                     if (inputArea) inputArea.style.display = 'flex';
-                    if (container) container.classList.remove('collapsed');
                     chatCollapsed = false;
+                    
+                    // Автоматическая прокрутка к последнему сообщению
+                    if (messages) messages.scrollTop = messages.scrollHeight;
+
+                    // Защита: если чат после открытия вылезает за пределы экрана по высоте
+                    const rect = container.getBoundingClientRect();
+                    if (rect.top + 380 > window.innerHeight) {
+                        const newTop = window.innerHeight - 380 - 20;
+                        container.style.top = Math.max(10, newTop) + 'px';
+                        localStorage.setItem('chat_pc_y', Math.max(10, newTop));
+                    }
                 }
             } 
-            // Для телефона - используем класс collapsed (с плавной анимацией)
+            // Для телефона - оригинальная логика с классом collapsed (с плавной анимацией)
             else {
                 if (chatCollapsed) {
-                    // Открываем чат
                     container.classList.remove('collapsed');
-                    // Небольшая задержка для плавного появления контента
                     setTimeout(() => {
                         if (messages) messages.style.display = 'flex';
                         if (inputArea) inputArea.style.display = 'flex';
                     }, 50);
                     chatCollapsed = false;
                 } else {
-                    // Закрываем чат
                     if (messages) messages.style.display = 'none';
                     if (inputArea) inputArea.style.display = 'none';
                     if (stickerPanel) stickerPanel.classList.remove('active');
@@ -950,6 +1019,143 @@
                     chatCollapsed = true;
                 }
             }
+        }
+        
+        // ========================================================
+        // ФУНКЦИЯ ДЛЯ ПЕРЕТАСКИВАНИЯ ЧАТА НА ПК (Drag and Drop)
+        // ========================================================
+        function initPcDragAndDrop() {
+            if (window.innerWidth <= 768) return; // Мобилки не трогаем!
+
+            const container = document.getElementById('chatContainer');
+            const header = container.querySelector('.chat-header');
+            if (!container || !header) return;
+
+            // Сброс в дефолтную позицию (над панелью карт)
+            function resetToDefaultPosition() {
+                const initialLeft = 20; // Сдвинуто левее к краю экрана
+                // Изначально ставим ровно над левым скругленным углом панели карт
+                // (высота экрана - высота панели (~200px) - высота новой увеличенной иконки (68px))
+                const initialTop = window.innerHeight - 205 - 68;
+                container.style.bottom = 'auto';
+                container.style.left = initialLeft + 'px';
+                container.style.top = Math.max(20, initialTop) + 'px';
+            }
+
+            // Пытаемся считать прошлые координаты
+            const savedX = localStorage.getItem('chat_pc_x');
+            const savedY = localStorage.getItem('chat_pc_y');
+            
+            if (savedX !== null && savedY !== null) {
+                container.style.bottom = 'auto';
+                container.style.left = savedX + 'px';
+                container.style.top = savedY + 'px';
+            } else {
+                resetToDefaultPosition();
+            }
+
+            let isDragging = false;
+            let startX = 0, startY = 0;
+            let initialX = 0, initialY = 0;
+            const dragThreshold = 6; // Минимальный порог сдвига мыши, чтобы зафиксировать перетаскивание
+            let hasMovedSignificantly = false;
+
+            container.addEventListener('mousedown', onMouseDown);
+
+            function onMouseDown(e) {
+                // Drag-and-drop работает только при клике ЛКМ
+                if (e.button !== 0) return;
+
+                const isCollapsed = container.classList.contains('collapsed');
+                const clickedHeader = e.target.closest('.chat-header');
+
+                // Если чат ОТКРЫТ, то таскать его можно ТОЛЬКО за шапку чата
+                if (!isCollapsed && !clickedHeader) {
+                    return;
+                }
+
+                // Игнорируем иконку и статус при перетаскивании открытого чата
+                if (e.target.closest('.chat-status') || e.target.closest('.chat-icon-mobile')) {
+                    if (!isCollapsed) return;
+                }
+
+                isDragging = true;
+                hasMovedSignificantly = false;
+                startX = e.clientX;
+                startY = e.clientY;
+
+                const rect = container.getBoundingClientRect();
+                initialX = rect.left;
+                initialY = rect.top;
+
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
+
+                // Запрещаем выделение текста на странице во время таскания чата
+                e.preventDefault();
+            }
+
+            function onMouseMove(e) {
+                if (!isDragging) return;
+
+                const dx = e.clientX - startX;
+                const dy = e.clientY - startY;
+
+                // Проверяем, действительно ли пользователь двигает мышку или случайно дернул пальцем
+                if (!hasMovedSignificantly && (Math.abs(dx) > dragThreshold || Math.abs(dy) > dragThreshold)) {
+                    hasMovedSignificantly = true;
+                    // Временно убираем transition, чтобы чат шел за курсором мгновенно
+                    container.style.transition = 'none';
+                }
+
+                if (hasMovedSignificantly) {
+                    let newX = initialX + dx;
+                    let newY = initialY + dy;
+
+                    // Ограничиваем перемещение чата границами экрана ПК
+                    const rect = container.getBoundingClientRect();
+                    const maxX = window.innerWidth - rect.width;
+                    const maxY = window.innerHeight - rect.height;
+
+                    newX = Math.max(5, Math.min(newX, maxX - 5));
+                    newY = Math.max(5, Math.min(newY, maxY - 5));
+
+                    container.style.left = newX + 'px';
+                    container.style.top = newY + 'px';
+                }
+            }
+
+            function onMouseUp(e) {
+                if (!isDragging) return;
+                isDragging = false;
+
+                document.removeEventListener('mousemove', onMouseMove);
+                document.removeEventListener('mouseup', onMouseUp);
+
+                // Возвращаем плавный transition
+                container.style.transition = 'width 0.3s cubic-bezier(0.4, 0, 0.2, 1), height 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-radius 0.3s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease, transform 0.2s ease';
+
+                if (hasMovedSignificantly) {
+                    // Сохраняем новые координаты
+                    const rect = container.getBoundingClientRect();
+                    localStorage.setItem('chat_pc_x', Math.round(rect.left));
+                    localStorage.setItem('chat_pc_y', Math.round(rect.top));
+
+                    // Вешаем триггер "перетащили" для предотвращения открытия при клике
+                    container.dataset.dragged = "true";
+                    setTimeout(() => {
+                        delete container.dataset.dragged;
+                    }, 50);
+                }
+            }
+
+            // Если размер экрана изменился, удерживаем чат в видимых границах окна
+            window.addEventListener('resize', () => {
+                const rect = container.getBoundingClientRect();
+                if (rect.left + 50 > window.innerWidth || rect.top + 50 > window.innerHeight) {
+                    resetToDefaultPosition();
+                }
+            });
         }
         
         function toggleStickerPanel() {
@@ -1165,11 +1371,11 @@
             }
         };
         
-        // Инициализация при загрузке
+        // Инициализация при загрузке страницы
         document.addEventListener('DOMContentLoaded', () => {
-            // Для ПК - чат открыт (без collapsed)
-            // Для телефона - уже свернут (класс добавлен выше)
-            
+            // Запуск инициализации перетаскивания для ПК
+            initPcDragAndDrop();
+
             // Кнопка турнирной таблицы
             let toggleBtn = document.getElementById('toggleLeaderboardBtn');
             if (!toggleBtn) {
